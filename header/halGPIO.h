@@ -7,13 +7,9 @@
 
 extern enum FSMstate state;   // global variable
 extern enum SYSmode lpm_mode; // global variable
-extern unsigned int KB;
-extern unsigned int i;
-extern unsigned int EndOfRecord;
-#define RecorderSize        32
-extern int recorder[RecorderSize];
-extern char LED_STATE;
-extern unsigned int KBIFG;
+
+
+
 
 //       SMCLK/(2*freq)
 #define     note0   501
@@ -35,6 +31,8 @@ extern void SetByteToPort(char);
 extern void clrPortByte(char);
 
 extern void enterLPM(unsigned char);
+extern void exitLPM();
+
 extern void enable_interrupts();
 extern void disable_interrupts();
 extern void write_freq_tmp_LCD();

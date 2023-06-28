@@ -2,13 +2,117 @@
 ////UPDATE14;55
 // Global Variables
 unsigned int EndOfRecord = 0;
-int j=0;
+unsigned int j=0;
 unsigned int KBIFG = 0;
 char LED_STATE = 0x1;
 char new_x[5];
-int x_pending = 0;
+unsigned int x_pending = 0;
 unsigned int x = 500;
 int current_buzz = 0;
+int i = 0;
+
+/*__________________________________________________________
+ *                                                          *
+ *            delay for multiple TB calls                   *
+ *__________________________________________________________*/
+
+void delay(unsigned int t){
+    unsigned int num_of_halfSec;
+
+    num_of_halfSec = (int) t / 500;
+    unsigned int res;
+    res = t % 500;
+    res = res * 131;
+    int k;
+    for (k=0; k < num_of_halfSec; k++){
+        startTimerB(0xFFF0);
+        __bis_SR_register(LPM0_bits + GIE);       // Enter LPM0 w/ int until Byte RXed
+    }
+
+    if (res > 1000){
+        startTimerB(res);
+        __bis_SR_register(LPM0_bits + GIE);       // Enter LPM0 w/ int until Byte RXed
+    }
+}
+
+/**__________________________________________________
+ *
+ *          ultrasonic sensor measure
+ *
+ * __________________________________________________*/
+volatile float diff;
+volatile int temp[2];
+int dst_int;
+
+
+int ultrasonic_measure(){
+    volatile float distance;
+
+    TBCTL = TBSSEL_2+MC_1;                      // SMCLK, upmode
+    TBCCTL2 = CAP | CCIE |CCIS_1 |CM_3 | SCS;   // capture mode,
+    // interrupt enable,
+    // capture input select: 0 - CCIxB ?????🪲🪲🪲;
+    // capture mode: 3 - both edges;
+    // sync capture source
+    __BIS_SR(LPM0_bits + GIE);                  // Enter LPM0 w/ interrupt
+
+    distance = diff/58;
+    dst_int = floor(distance);
+    return dst_int;
+}
+
+// Timer_B interrupt service routine -- Toggle P5.1
+#pragma vector=TIMERB0_VECTOR
+__interrupt void Timer_B (void)
+{
+
+    switch (TBIV) {
+        case TB0IV_TBCCR1:
+            break;
+        case TB0IV_TBCCR2:
+            temp[i] = TBCCR2;
+            i += 1;
+            TBCCTL2 &= ~CCIFG ;
+            if (i==2) {
+                diff= temp[i-1]-temp[i-2];
+                i=0;
+            }
+            break;
+        case TB0IV_TBCCR3:
+            break;
+        case TB0IV_TBCCR4:
+            TBIV &= ~TB0IV_TBCCR4;
+            break;
+
+    }
+    /*__________________________________________________________
+     *                                                          *
+     *            Exit from a given LPM                         *
+     *__________________________________________________________*/
+
+    switch (lpm_mode) {
+        case mode0:
+            LPM0_EXIT; // must be called from ISR only
+            break;
+
+        case mode1:
+            LPM1_EXIT; // must be called from ISR only
+            break;
+
+        case mode2:
+            LPM2_EXIT; // must be called from ISR only
+            break;
+
+        case mode3:
+            LPM3_EXIT; // must be called from ISR only
+            break;
+
+        case mode4:
+            LPM4_EXIT; // must be called from ISR only
+            break;
+    }    //stop B timer
+    TBCTL = 0;
+}
 
 
 /*__________________________________________________________
@@ -21,36 +125,13 @@ void sysConfig(void){
 
     servo_config();
 
-	//StopAllTimers();
 
 
     //UART_init();
 }
 //____________________________________________________________
 
-/*__________________________________________________________
- *                                                          *
- *            General Function - No need                       *
- *__________________________________________________________*/
 
-void int2str(char *str, unsigned int num){
-    int strSize = 0;
-    long tmp = num, len = 0;
-    int j;
-    // Find the size of the intPart by repeatedly dividing by 10
-    while(tmp){
-        len++;
-        tmp /= 10;
-    }
-
-    // Print out the numbers in reverse
-    for(j = len - 1; j >= 0; j--){
-        str[j] = (num % 10) + '0';
-        num /= 10;
-    }
-    strSize += len;
-    str[strSize] = '\0';
-}
 /*__________________________________________________________
  *                                                          *
  *            Enter LPM mode                                *
@@ -288,117 +369,18 @@ void DelayMs(unsigned int cnt){
 
 
 
-/********************************************************************************
- *                                                                              *
- *                          TimerA0 ISR                                         *
- *                                                                              *
- *______________________________________________________________________________*/
+//
+///*__________________________________________________________
+// *                                                          *
+// *            Exit from a given LPM                         *
+// *__________________________________________________________*/
+//
+//#pragma vector = ADC12_VECTOR
+//__interrupt void ADC12_ISR (void)
+//{
+//    __bic_SR_register_on_exit(CPUOFF);
+//}
 
-
-#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
-#pragma vector = TIMER0_A0_VECTOR
-__interrupt void Timer_A (void)
-#elif defined(__GNUC__)
-void __attribute__ ((interrupt(TIMER0_A0_VECTOR))) Timer_A (void)
-#else
-#error Compiler not supported!
-#endif
-{
-
-    /*__________________________________________________________
-     *                                                          *
-     *            Exit from a given LPM                         *
-     *__________________________________________________________*/
-    switch(lpm_mode){
-        case mode0:
-            LPM0_EXIT; // must be called from ISR only
-            break;
-
-        case mode1:
-            LPM1_EXIT; // must be called from ISR only
-            break;
-
-        case mode2:
-            LPM2_EXIT; // must be called from ISR only
-            break;
-
-        case mode3:
-            LPM3_EXIT; // must be called from ISR only
-            break;
-
-        case mode4:
-            LPM4_EXIT; // must be called from ISR only
-            break;
-    }
-            TACTL = MC_0+TACLR;
-}
-/*__________________________________________________________
- *                                                          *
- *            Exit from a given LPM                       *
- *__________________________________________________________*/
-
-
-
-/*__________________________________________________________
- *                                                          *
- *            delay for multiple TA calls                   *
- *__________________________________________________________*/
-
-void delay(unsigned int t){
-    unsigned int num_of_halfSec;
-
-    num_of_halfSec = (int) t / 500;
-    unsigned int res;
-    res = t % 500;
-    res = res * 131;
-
-    for (i=0; i < num_of_halfSec; i++){
-        startTimerA0(0xFFFF);
-        __bis_SR_register(LPM0_bits + GIE);       // Enter LPM0 w/ int until Byte RXed
-    }
-
-    if (res > 1000){
-        startTimerA0(res);
-        __bis_SR_register(LPM0_bits + GIE);       // Enter LPM0 w/ int until Byte RXed
-    }
-}
-
-/*__________________________________________________________
- *                                                          *
- *            Exit from a given LPM                         *
- *__________________________________________________________*/
-
-#pragma vector = ADC10_VECTOR
-__interrupt void ADC10_ISR (void)
-{
-    __bic_SR_register_on_exit(CPUOFF);
-}
-
-
-/** _______________________________________________________________________________________________*
- *                                                                                                 *
- *                                      TX ISR                                                     *
- *                                                                                                 *
- *  -----------------------------------------------------------------------------------------------*
- * handles the UART serial  communication module (USCI) Transmission interrupt                     *
- *                                                                                                 *
- *_________________________________________________________________________________________________*/
-#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
-#pragma vector=USCIAB0TX_VECTOR
-__interrupt void USCI0TX_ISR(void)
-#elif defined(__GNUC__)8565
-void __attribute__ ((interrupt(USCIAB0TX_VECTOR))) USCI0TX_ISR (void)
-#else
-#error Compiler not supported!
-#endif
-{
-    if(state == state7) UCA0TXBUF = '7'; //print menu in PC
-    else if (x_pending) UCA0TXBUF = '4';
-    else UCA0TXBUF = 'F';   // Finish
-    IE2 &= ~UCA0TXIE;                       // Disable USCI_A0 TX interrupt
-
-
-}
 
 /** _______________________________________________________________________________________________*
  *                                                                                                 *
@@ -435,50 +417,5 @@ void __attribute__ ((interrupt(USCIAB0TX_VECTOR))) USCI0TX_ISR (void)
 //}
 //
 
-/******************************************************************************
- *
- *                          Buttons ISR
- *
- *____________________________________________________________________________
-
-******************************************************************************/
-#pragma vector=PORT1_VECTOR
-  __interrupt void PBs_handler(void){
-    int k;
-    for (k=0;k<100;k++);
-
-//            selector of transition between states
-
-
-      current_buzz = (current_buzz + 1 )%4;
-      PBsArrIntPend &= ~PB0;
-
-
-
-//            Exit from a given LPM
-
-        switch(lpm_mode){
-        case mode0:
-         LPM0_EXIT; // must be called from ISR only
-         break;
-
-        case mode1:
-         LPM1_EXIT; // must be called from ISR only
-         break;
-
-        case mode2:
-         LPM2_EXIT; // must be called from ISR only
-         break;
-
-                case mode3:
-         LPM3_EXIT; // must be called from ISR only
-         break;
-
-                case mode4:
-         LPM4_EXIT; // must be called from ISR only
-         break;
-    }
-
-}
 
 

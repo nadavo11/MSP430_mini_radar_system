@@ -4,9 +4,7 @@
 ////UPDATE14;55
 #include "stdio.h"
 
-int tones[7] = {1000,1250,1500,17500,2000,2250,2500};
-int count = 0;
-int tone = 0;
+
 int c;
 /*______________________________________
  *                                      *
@@ -19,7 +17,7 @@ void lcd_reset(){
     lcd_home();
 }
 
-/*__________________________________________________________
+/**__________________________________________________________
  *                                                          *
  *          STATE 1 : SCAN OBJECTS                          *
  *__________________________________________________________*
@@ -28,31 +26,39 @@ void lcd_reset(){
 
 int objects[180];
 int distance;
-void  servo_angle(int angle){
+void  servo_angle(int a){
     //set servo angle
-    int PWM_period = (int)((angle/180)*0xFFF0);
+    int PWM_period = (int)((a*60 +2700)/180) ;
     servo_PWM(PWM_period);
-}
 
+}
+unsigned int angle = 10;
+int inc = 1;
 void scan_objects(int t){
-    int angle = 170;
-    while (state == state1){
+
+    while (1){
+
+
+        DelayMs(1000);
         // increment servo motor angle
-        angle = (angle + 1)%180;
-        servo_angle(angle);
+        angle = (angle + inc);
+        if (angle == 180 || angle == 1)
+            inc = -inc;
+        //servo_angle(angle);
+        TACCR1 = angle;
 
         //scan objects
-        ultrasonic_config();
-        int distance = ultrasonic_measure();
-        lcd_print_num(distance);
-        break;
+        //ultrasonic_config();
+        //int distance = ultrasonic_measure();
+        //lcd_print_num(distance);
+                      // TACCR2 PWM duty cycle
     }
     //stopTimerA0();
 }
 
 
 
-/*__________________________________________________________
+/**__________________________________________________________
  *                                                          *
  *          STATE 2 : SCAN lights                           *
  *__________________________________________________________*
@@ -68,9 +74,9 @@ int LDR_measure(){
     enable_interrupts();
     enterLPM(mode0);
     disable_interrupts();
-    ADC10CTL0 &= ~ADC10ON;                    // Disable ADC10 interrupt
+    ADC12CTL0 &= ~ADC12ON;                    // Disable ADC10 interrupt
 
-    return ADC10MEM;
+    return ADC12MEM;
 
 }
 
