@@ -54,10 +54,16 @@ class MainWindow(QMainWindow):
         self.canvas = FigureCanvas(self.fig)
         main_layout.addWidget(self.canvas)
 
+
         # Create a button to send data to Arduino
-        # self.send_button = QPushButton("Send", self)
-        # self.send_button.clicked.connect(self.send_data)
-        # main_layout.addWidget(self.send_button)
+        self.button1 = QPushButton("Ultra Sonc Scan", self)
+        self.button1.pressed.connect(self.scan_obj)
+
+        self.button2 = QPushButton("LDR scan", self)
+        self.button2.pressed.connect(self.scan_light)
+
+        self.button3 = QPushButton("Integrated scan", self)
+        self.button3.pressed.connect(self.scan_both)
 
         # Initialize the Arduino communication
         self.serial = QSerialPort(self)
@@ -68,11 +74,18 @@ class MainWindow(QMainWindow):
 
         self.setStyleSheet("background-color: hsl(20, 20%, 5%); color: Aquamarine;")
 
+        main_layout.addWidget(self.button1)
+
+        main_layout.addWidget(self.button2)
+
+        main_layout.addWidget(self.button3)
+
+    @QtCore.pyqtSlot()
 
     def read_data(self):
 
         # Read the UART signal from Arduino
-        line = self.serial.readAll().data().decode().strip()
+        line = self.serial.readLine().data().decode().strip()
 
         line = line.split(' | ')
 
@@ -83,10 +96,9 @@ class MainWindow(QMainWindow):
         print(line)
         line = 6
         self.object_data[phi] = min(r, 60)
-        # self.object_data[self.object_data > 60] = 60
         # Update the radar plot
         self.update_radar(self.object_data)
-
+    @QtCore.pyqtSlot()
     def update_radar(self, object_data):
 
         # Clear the current plot
@@ -106,7 +118,7 @@ class MainWindow(QMainWindow):
 
         # Plot markers for the detected objects
         self.ax.scatter(np.deg2rad(object_indices), intensities, c=intensities, cmap=plt.cm.jet, alpha=0.5, linestyle='')
-
+        self.ax.scatter(np.deg2rad(object_indices), intensities + 10, c="yellow", alpha=0.5, linestyle='')
         # Fill the area inside the radar plot
         self.ax.fill(theta, object_data, alpha=0.25)
 
@@ -119,15 +131,24 @@ class MainWindow(QMainWindow):
 
         # Redraw the canvas
         self.canvas.draw()
-
+    @QtCore.pyqtSlot()
     def write_data(self, data):
         # Write data to Arduino
         data = QByteArray(data.encode())
+        print(data)
         self.serial.write(data)
 
-    def send_data(self):
+    def sayHi(self):
+        print("hi")
+    def scan_obj(self):
         # Write '1' to Arduino
         self.write_data('1')
+    def scan_light(self):
+        # Write '1' to Arduino
+        self.write_data('2')
+    def scan_both(self):
+        # Write '1' to Arduino
+        self.write_data('3')
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
