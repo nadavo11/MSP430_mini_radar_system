@@ -1,52 +1,31 @@
 #ifndef _halGPIO_H_
 #define _halGPIO_H_
+#endif
 
 #include  "../header/bsp.h"    		// private library - BSP layer
 #include  "../header/app.h"    		// private library - APP layer
-////UPDATE14;55
+
+extern int diff;
 
 extern enum FSMstate state;   // global variable
 extern enum SYSmode lpm_mode; // global variable
 
-
-
-
-//       SMCLK/(2*freq)
-#define     note0   501
-#define     note1   473
-#define     note2   447
-#define     note3   421
-#define     note4   398
-#define     note5   375
-#define     note6   354
-#define     note7   334
-#define     note8   316
-#define     note9   298
-#define     note10  281
-#define     note11  265
-#define     note12  250
-
-extern void sysConfig(void);
-extern void SetByteToPort(char);
-extern void clrPortByte(char);
-
 extern void enterLPM(unsigned char);
-extern void exitLPM();
 
 extern void enable_interrupts();
 extern void disable_interrupts();
-extern void write_freq_tmp_LCD();
-extern void write_signal_shape_tmp_LCD();
-
-extern __interrupt void PBs_handler(void);
-extern __interrupt void PBs_handler_P2(void);
+//extern void write_freq_tmp_LCD();
+//extern void write_signal_shape_tmp_LCD();
+//
+//extern __interrupt void PBs_handler(void);
+//extern __interrupt void PBs_handler_P2(void);
 extern __interrupt void Timer_A0(void);
-extern __interrupt void DMA_ISR(void);
-extern __interrupt void Timer_A1(void);
+//extern __interrupt void DMA_ISR(void);
+//extern __interrupt void Timer_A1(void);
+//
+//
 
-#endif
-
-// #define CHECKBUSY    1  // using this define, only if we want to read from LCD
+//// #define CHECKBUSY    1  // using this define, only if we want to read from LCD
 
 #ifdef CHECKBUSY
     #define LCD_WAIT lcd_check_busy()
@@ -105,16 +84,20 @@ extern __interrupt void Timer_A1(void);
 extern void lcd_cmd(unsigned char);
 extern void lcd_data(unsigned char);
 extern void lcd_puts(const char * s);
+void lcd_putrow(const char * s);
+
 extern void lcd_print_num(int num);
 extern void lcd_print_voltage(int num);
         extern void lcd_init();
 extern void lcd_strobe();
+
 extern void DelayMs(unsigned int);
 extern void DelayUs(unsigned int);
 extern void delay(unsigned int t);
-extern unsigned int x;
-extern char new_x[5];
-extern int current_buzz;
+
+//extern unsigned int x;
+//extern char new_x[5];
+//extern int current_buzz;
 
 /*__________________________________________________________
  *                                                          *

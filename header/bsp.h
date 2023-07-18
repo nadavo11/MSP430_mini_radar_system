@@ -7,6 +7,54 @@
 
 #define   debounceVal           100
 
+#define TB1PortSEL         P2SEL
+#define TB1PortDIR         P2DIR
+
+
+#define TB2PortSEL         P2SEL
+#define TB2PortDIR         P2DIR
+
+#define TB3PortSEL         P3SEL
+#define TB3PortDIR         P3DIR
+
+#define TB4PortSEL         P3SEL
+#define TB4PortDIR         P3DIR
+
+#define TB5PortSEL         P3SEL
+#define TB5PortDIR         P3DIR
+
+#define TB6PortSEL         P3SEL
+#define TB6PortDIR         P3DIR
+
+#define TA2PortSEL         P2SEL
+#define TA2PortDIR         P2DIR
+
+
+
+
+#define TB1                BIT2
+#define TB2                BIT3
+#define TB3                BIT4
+#define TB4                BIT5
+#define TB5                BIT6
+#define TB6                BIT7
+
+#define TA2                BIT0
+
+
+
+#define LDR1SEL            P6SEL
+#define LDR2SEL            P6SEL
+
+
+
+
+#define Periode_60ms_val   60000
+#define MAX_TBR            65534
+//#define deley_4ms_val      4194
+#define deley_10us_val       10
+#define Periode_20ms_val   21000
+
 // LCDs abstraction
 #define LCD_DATA_WRITE          P10OUT
 #define LCD_DATA_DIR            P10DIR
@@ -16,44 +64,43 @@
 
 
 //uart abstraction
-#define TXLED                   BIT0
-#define RXLED                   BIT6
-#define TXD                     BIT2
-#define RXD                     BIT1
+//#define TXLED                   BIT0
+//#define RXLED                   BIT6
+//#define TXD                     BIT2
+//#define RXD                     BIT1
+//
 
 
-
-//TIMERA0
-extern void stopTimerA0(void);
-extern void startTimerA1(int freq);
-extern void stopTimerA1(void);
-extern void startTimerB(int freq);
 
 extern void GPIOconfig(void);
-extern void stabalize();
+extern void TimerB_Config();
+extern void delay_us(unsigned int del);
+extern void delay2();
 
 //  servo bsp
-extern void servo_config();
-extern void servo_stop();
-extern void servo_PWM(int DUTY_CYCLE);
+//extern void servo_config();
+//extern void servo_stop();
+//extern void servo_PWM(int DUTY_CYCLE);
 
 //  Ultrasonic bsp
-extern void ultrasonic_config();
-extern int ultrasonic_measure();
+//extern void ultrasonic_config();
+//extern int ultrasonic_measure();
 
 
+//
+//extern void TIMER_A0_config(void);
+//extern void TIMERB_config(void);
+//extern void startTimerB();
+//extern void StopAllTimers(void);
+//extern void confDMA3(void);
 
-extern void TIMER_A0_config(void);
-extern void TIMERB_config(void);
-extern void startTimerB();
-extern void StopAllTimers(void);
-extern void confDMA3(void);
-
-
+//
 extern void ADC_config();
 extern void ADC_start();
+extern void ADC_stop();
 
-extern void UART_init();
+//
+//extern void UART_init();
 
 #endif
 
