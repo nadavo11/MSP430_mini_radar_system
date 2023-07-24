@@ -240,18 +240,36 @@ void lcd_print_voltage(int num) {
             LPM0_EXIT;
 
             break;
-
+        /****** capture ISR *****
+         *
+         *      TB2 acts in capture
+         * *********************/
         case TBIV_TBCCR2:           //CAPTURE ISR
             TBIV &= ~TBIV_TBCCR2;
-            temp[i] = TBCCR2;
-            i += 1;
-            TBCCTL2 &= ~CCIFG ;
+            if(i==0) {
+                // clear TBR to start counting from zero
+                //TBR = 0
+                //TBCTL |= TBCLR;
+                //rising edge
+                //revcord count value
+            }
+                temp[i] = TBCCR2;
+                i += 1;
+                TBCCTL2 &= ~CCIFG;
+            
             if (i==2) {
-                diff=temp[i-1]-temp[i-2];
+                if(temp[0] < temp[1]){
+                    diff = temp[1] - temp[0];
+                }
+                else{
+                    //max value of TBR is 131071, in hex 0xFFFF
+                    diff = 0xFFFF - temp[0] + temp[1];
+                }
                 i=0;
+                LPM0_EXIT;
             }
 
-            LPM0_EXIT;
+
             break;
 
         case TBIV_TBCCR3:

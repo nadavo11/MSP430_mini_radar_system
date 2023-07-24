@@ -54,6 +54,7 @@ void trigger_ultrasonic(){
     delay2();
     P5OUT ^= 0x02;
     long_delay();
+
 }
 
 void print_measurments(int LLDR , int RLDR){
