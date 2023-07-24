@@ -1,6 +1,7 @@
 import sys
 from queue import Queue
-
+PORT = 'COM5'
+TH = 10
 from PyQt5 import QtGui, QtCore
 from PyQt5.QtWidgets import QPushButton, QApplication, QMainWindow, QVBoxLayout, QWidget
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -15,6 +16,26 @@ import time
 plt.style.use('dark_background')
 from PyQt5.QtCore import QIODevice, QByteArray
 from PyQt5.QtSerialPort import QSerialPort
+
+def detect_lights(l0,l1,direction):
+    """
+    detect lights by recording the direction of the light
+    according to weather the input of sensor 0 or 1 is greater
+    and finding turning points where l0 ~== l1
+    :param l0: light sensor 0
+    :param l1: light sensor 1
+    :param direction: scanning direction
+
+    return: None if no light detected
+            1 if light is in the same direction as the scanning direction
+            -1 if light is in the opposite direction as the scanning direction
+    """
+    TH = 10
+    if l0 < TH or l1 <TH:
+        return
+
+
+
 
 class MainWindow(QMainWindow):
 
@@ -50,6 +71,9 @@ class MainWindow(QMainWindow):
         sm.set_array([])  # Set an empty array for now
 
         self.object_data = np.zeros(180) +60
+        self.light_data = np.zeros(180)
+        self.previous_l = 0
+
         # Create the canvas
         self.canvas = FigureCanvas(self.fig)
         main_layout.addWidget(self.canvas)
@@ -67,7 +91,7 @@ class MainWindow(QMainWindow):
 
         # Initialize the Arduino communication
         self.serial = QSerialPort(self)
-        self.serial.setPortName('COM9')
+        self.serial.setPortName(PORT)
         self.serial.setBaudRate(QSerialPort.Baud9600)
         self.serial.readyRead.connect(self.read_data)
         self.serial.open(QIODevice.ReadWrite)
@@ -83,6 +107,11 @@ class MainWindow(QMainWindow):
     @QtCore.pyqtSlot()
 
     def read_data(self):
+        """
+        Read the data from MCU and update the radar plot
+        if an object is detected, the radar data will be updated
+        if
+        """
 
         # Read the UART signal from Arduino
         line = self.serial.readLine().data().decode().strip()
@@ -90,7 +119,12 @@ class MainWindow(QMainWindow):
         line = line.split(' | ')
 
         phi = int(line[0])
-        r = int(line[1])
+        l1 = int(line[1])
+        l2 = int(line[2])
+        r = int(line[3])
+
+        # l = int(line[2])
+
         # Process the data from Arduino
         #object_data = np.array(line.split(','), dtype=int)
         print(line)
@@ -106,6 +140,11 @@ class MainWindow(QMainWindow):
 
         # Set the theta values for the radar plot
         theta = np.deg2rad(np.arange(0, 180))
+        """
+        #############################
+        #   objects plot            #
+        #############################
+        """
 
         # Plot the data points
         self.ax.plot(theta, object_data)
@@ -118,9 +157,17 @@ class MainWindow(QMainWindow):
 
         # Plot markers for the detected objects
         self.ax.scatter(np.deg2rad(object_indices), intensities, c=intensities, cmap=plt.cm.jet, alpha=0.5, linestyle='')
-        self.ax.scatter(np.deg2rad(object_indices), intensities + 10, c="yellow", alpha=0.5, linestyle='')
         # Fill the area inside the radar plot
         self.ax.fill(theta, object_data, alpha=0.25)
+        """
+       #############################
+       #   lights plot            #
+       #############################
+       """
+
+        # plot the lights
+        self.ax.scatter(np.deg2rad(object_indices), intensities + 10, s=0, c="yellow", alpha=0.5, linestyle='')
+
 
         # Set the title and grid
         self.ax.set_title("Radar Monitor", fontsize=20, fontweight='bold')
@@ -142,6 +189,7 @@ class MainWindow(QMainWindow):
         print("hi")
     def scan_obj(self):
         # Write '1' to Arduino
+        state = 0
         self.write_data('1')
     def scan_light(self):
         # Write '1' to Arduino
