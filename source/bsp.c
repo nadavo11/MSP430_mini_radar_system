@@ -115,9 +115,16 @@ void TimerB_Config(){
 //}
 
 void delay2(){
-    volatile int f = 10;
-    while(f--);
+    volatile int f;
+    f=0;
+    f++;
+    f--;
+   // TBCCTL1 |= CCIE;
+//    TBCCR1 = TBR+2;
+//    _BIS_SR(LPM0_bits + GIE);
+  //  TBCCTL1 &= ~CCIE;
 
+  //  TBCCTL4 = OUTMOD_4 + CCIE;
 }
 
 void delay_us(unsigned int del){

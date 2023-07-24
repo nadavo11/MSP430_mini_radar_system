@@ -14,7 +14,7 @@ unsigned int Index,g=0;
 void main(void){
     P5OUT = 0x00;
 
-    state = state2;       // start in idle state on RESET
+    state = state3;       // start in idle state on RESET
     lpm_mode = mode0;     // start in idle state on RESET
     sysConfig();          // Configure GPIO, Stop Timers, Init LCD
     //_BIS_SR(CPUOFF);                          // Enter LPM0
@@ -40,14 +40,13 @@ void main(void){
         case state2: //sonic
             while(1){
                trigger_ultrasonic();
-                print_measurments(diff,diff);
 
-//                sprintf(st, "%d", temp[0]);
-//               sprintf(ff, "%d", temp[1]);
-//               cursor_off;
-//               lcd_reset();
-//               lcd_puts(st);
-//               lcd_puts(ff);
+               sprintf(st, "%d", temp[0]);
+               sprintf(ff, "%d", temp[1]);
+               cursor_off;
+               lcd_reset();
+               lcd_puts(st);
+               lcd_puts(ff);
             }
         break;
 
@@ -55,8 +54,6 @@ void main(void){
 
             while(1){
                 LDR_measurement(500);
-                Results[0]=(3.3)*(4095-Results[0])/4095;
-                Results[1]=(3.3)*(4095-Results[1])/4095;
                 print_measurments(Results[0],Results[1]);
 
 

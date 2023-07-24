@@ -49,17 +49,12 @@ void LDR_measurement(int t){
 
 void trigger_ultrasonic(){
     delay_us(del60ms);
-    delay_us(del60ms);
-    delay_us(del60ms);
-
     delay2();
     P5OUT ^= 0x02;
     delay2();
     P5OUT ^= 0x02;
     long_delay();
 }
-
-
 
 void print_measurments(int LLDR , int RLDR){
     char L[16],R[16];
