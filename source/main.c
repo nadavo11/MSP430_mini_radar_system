@@ -1,79 +1,106 @@
 #include  "../header/api.h"    		// private library - API layer
 #include  "../header/app.h"    		// private library - APP layer
 #include  <stdio.h>
-////UPDATE14;55
+
 enum FSMstate state;
+enum Stepperstate stateStepp;
 enum SYSmode lpm_mode;
-//unsigned int i = 0;
-unsigned int del60ms=Periode_60ms_val;
-unsigned int del10us=10;
-char st[16]="sdf",ff[16];
-extern int temp[2], side;
-volatile unsigned int Results[8];
-unsigned int Index,g=0;
+
+
+char *msg = "Wallak";
 void main(void){
-    P5OUT = 0x00;
 
-    state = state2;       // start in idle state on RESET
-    lpm_mode = mode0;     // start in idle state on RESET
-    sysConfig();          // Configure GPIO, Stop Timers, Init LCD
-    //_BIS_SR(CPUOFF);                          // Enter LPM0
-    int a = 510;
-
-    while(1){
-
-        switch(state){
-        case state0: //idle - Sleep
-
-     //       enterLPM(mode0);
-        break;
-
-        case state1: //PB0 recorder
-            while(1){    //servo motor
-                a+=9;
-                if(a>2310) a=510;
-                set_angel(a);       // set CCR3
-                delay_us(Periode_60ms_val);
-            }
-        break;
-
-        case state2: //sonic
-            while(1){
-               trigger_ultrasonic();
-                _BIS_SR(LPM0_bits + GIE);
-
-                sprintf(st, "%d", diff);
-
-               cursor_off;
-               lcd_reset();
-               lcd_puts(st);
-            }
-        break;
-
-        case state3:
-
-            while(1){
-                LDR_measurement(500);
-                print_measurments(Results[0],Results[1]);
+  state = stateJSRotate;  // start in idle state on RESET
+  stateStepp = stateDefault;
+  lpm_mode = mode0;     // start in idle state on RESET
+  sysConfig();     // Configure GPIO, Init ADC
 
 
-            }
-        break;
+  UCA0TXBUF = 'a' & 0xFF;
+  MSBIFG = 1;
+  IE2 |= UCA0TXIE;
+  while(1){
+	switch(state){
+
+	case state0: //   StepperUsingJoyStick
+	    IE2 |= UCA0RXIE; // Enable USCI_A0 RX interrupt
+	    switch(stateStepp){
+	    case stateAutoRotate:
+	        while(rotateIFG){ curr_counter++; Stepper_clockwise(200); }
+	        break;
+
+        case stateStopRotate:
+            break;
+
+        case stateJSRotate:
+            counter = 514;
+            StepperUsingJoyStick();
+            break;
+        case stateDefault:
+         //   counter = 514;
+        //    motorGoToPosition(360, 1);
+            __bis_SR_register(LPM0_bits + GIE);       // Enter LPM0 w/ int until Byte RXed
+            break;
+	    }
+	    break;
+
+	case state1: // Paint
+	    JoyStickIntEN |= BIT5;
+	 //   IE2 |= UCA0RXIE; // Enable USCI_A0 RX interrupt
+	    while (state == state1){
+	        JoyStickADC_Painter();
+	    }
+        JoyStickIntEN &= ~BIT5;
+	    break;
+
+	case state2: // Calibrate
+        IE2 |= UCA0RXIE;                          // Enable USCI_A0 RX interrupt
+
+        switch(stateStepp){
+        case stateDefault:
+            __bis_SR_register(LPM0_bits + GIE);       // Enter LPM0 w/ int until Byte RXed
+            break;
+
+        case stateAutoRotate: // start rotate
+            counter = 0;
+            while(rotateIFG) { Stepper_clockwise(100); counter++; }
+            break;
+
+        case stateStopRotate: // stop and set phi
+            calibrate();
+            break;
         }
+	    break;
 
-    }
+	case state3:  //Script
+        IE2 |= UCA0RXIE;                          // Enable USCI_A0 RX interrupt
+	    while ( state == state3){
+	        ScriptFunc();
+	    }
+		break;
+		
+	case state4: //
 
-}
-#pragma vector = ADC12_VECTOR
-__interrupt void ADC12_ISR(void)
-{
-  Results[0] = ADC12MEM0;             // Move result, IFG is cleared
-  Results[1] = ADC12MEM1;             // Move result, IFG is cleared
+		break;
 
-  //__no_operation();                         // SET BREAKPOINT HERE
-  ADC12CTL0 &= ~ENC;
-  LPM0_EXIT;
+    case state5: //
 
+        break;
+
+    case state6: //
+
+        break;
+
+    case state7: //
+
+        break;
+
+    case state8: //
+
+        break;
+		
+	}
+  }
 }
 
   

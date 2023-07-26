@@ -1,59 +1,93 @@
 #ifndef _halGPIO_H_
 #define _halGPIO_H_
-#endif
 
 #include  "../header/bsp.h"    		// private library - BSP layer
 #include  "../header/app.h"    		// private library - APP layer
+#include "stdint.h"
 
-extern int diff;
+#define MULTIPLY_FP_RESOLUTION_BITS 15 // For atan2-fixed point
 
 extern enum FSMstate state;   // global variable
+extern enum Stepperstate stateStepp;
 extern enum SYSmode lpm_mode; // global variable
+extern unsigned int delay_time;
+extern int startRotateLEDs;
+extern int* rotateLEDs;
+extern int pushedIFG;
+extern int sendIFG;
+extern short MSBIFG;
+extern short stateIFG;
+extern const short state_changed[];
+extern char stringFromPC[];
+extern char file_content[];
+extern int ExecuteFlag;
+extern int FlashBurnIFG;
+extern int SendFlag;
+extern int j;
+extern short Vr[];
+extern int counter;
+extern int rotateIFG;
+extern char counter_str[];
+extern unsigned int i;
+extern unsigned int tx_index;
+#define half_sec 500;
+#define clk_tmp 131; // ( (2^20) / 8 )*(10^-3) to convert ms to counter value for TACCR0
+extern int curr_counter;
 
+extern void sysConfig(void);
+extern void print2RGB(char);
+extern void print2LEDs(unsigned char);
+extern void SetByteToPort(char);
+extern void clrPortByte(char);
+extern void delay(unsigned int);
 extern void enterLPM(unsigned char);
-
 extern void enable_interrupts();
-extern void disable_interrupts();
-//extern void write_freq_tmp_LCD();
-//extern void write_signal_shape_tmp_LCD();
-//
-//extern __interrupt void PBs_handler(void);
-//extern __interrupt void PBs_handler_P2(void);
-extern __interrupt void Timer_A0(void);
-//extern __interrupt void DMA_ISR(void);
-//extern __interrupt void Timer_A1(void);
-//
-//
 
-//// #define CHECKBUSY    1  // using this define, only if we want to read from LCD
+extern void disable_interrupts();
+extern void timer_call_counter();
+extern void START_TIMERA0(unsigned int counter);
+extern void START_TIMERA1(unsigned int counter);
+extern float angle(float X, float Y);
+extern void  motorGoToPosition(uint32_t stepper_degrees, char script_state);
+extern int16_t atan2_fp(int16_t y_fp, int16_t x_fp);
+extern void send_finish_to_PC();
+extern uint32_t hex2int(char *hex);
+
+extern __interrupt void Timer_A0(void);
+extern __interrupt void Timer_A1(void);
+extern __interrupt void Timer1_A0_ISR(void);
+extern __interrupt void USCI0RX_ISR(void);
+extern __interrupt void USCI0TX_ISR(void);
+extern __interrupt void Joystick_handler(void);
+
+#endif
+
+// #define CHECKBUSY    1  // using this define, only if we want to read from LCD
 
 #ifdef CHECKBUSY
     #define LCD_WAIT lcd_check_busy()
 #else
     #define LCD_WAIT DelayMs(5)
 #endif
-/*__________________________________________________________
- *                                                          *
- * CONFIG: change values according to your port pin selection                     *
- *__________________________________________________________*/
 
-#define LCD_EN(a)   (!a ? (P2OUT&=~0X20) : (P2OUT|=0X20)) // P2.5 is lcd enable pin
-#define LCD_EN_DIR(a)   (!a ? (P2DIR&=~0X20) : (P2DIR|=0X20)) // P2.5 pin direction
+/*----------------------------------------------------------
+  CONFIG: change values according to your port pin selection
+------------------------------------------------------------*/
+#define LCD_EN(a)   (!a ? (P1OUT&=~0X20) : (P1OUT|=0X20)) // P2.5 is lcd enable pin
+#define LCD_EN_DIR(a)   (!a ? (P1DIR&=~0X20) : (P1DIR|=0X20)) // P2.5 pin direction
 
-#define LCD_RS(a)   (!a ? (P2OUT&=~0X40) : (P2OUT|=0X40)) // P2.6 is lcd RS pin
-#define LCD_RS_DIR(a)   (!a ? (P2DIR&=~0X40) : (P2DIR|=0X40)) // P2.6 pin direction
+#define LCD_RS(a)   (!a ? (P1OUT&=~0X40) : (P1OUT|=0X40)) // P2.6 is lcd RS pin
+#define LCD_RS_DIR(a)   (!a ? (P1DIR&=~0X40) : (P1DIR|=0X40)) // P2.6 pin direction
 
-#define LCD_RW(a)   (!a ? (P2OUT&=~0X80) : (P2OUT|=0X80)) // P2.7 is lcd RW pin
-#define LCD_RW_DIR(a)   (!a ? (P2DIR&=~0X80) : (P2DIR|=0X80)) // P2.7 pin direction
+#define LCD_RW(a)   (!a ? (P1OUT&=~0X80) : (P1OUT|=0X80)) // P2.7 is lcd RW pin
+#define LCD_RW_DIR(a)   (!a ? (P1DIR&=~0X80) : (P1DIR|=0X80)) // P2.7 pin direction
 
 #define LCD_DATA_OFFSET 0x04 //data pin selection offset for 4 bit mode, variable range is 0-4, default 0 - Px.0-3, no offset
 
 
-
-/*__________________________________________________________
- *                                                          *
- *           END CONFIG                      *
- *__________________________________________________________*/
+/*---------------------------------------------------------
+  END CONFIG
+-----------------------------------------------------------*/
 #define FOURBIT_MODE    0x0
 #define EIGHTBIT_MODE   0x1
 #define LCD_MODE        FOURBIT_MODE
@@ -84,29 +118,18 @@ extern __interrupt void Timer_A0(void);
 extern void lcd_cmd(unsigned char);
 extern void lcd_data(unsigned char);
 extern void lcd_puts(const char * s);
-void lcd_putrow(const char * s);
-
-extern void lcd_print_num(int num);
-extern void lcd_print_voltage(int num);
-        extern void lcd_init();
+extern void lcd_init();
 extern void lcd_strobe();
-
 extern void DelayMs(unsigned int);
 extern void DelayUs(unsigned int);
-extern void delay(unsigned int t);
-
-//extern unsigned int x;
-//extern char new_x[5];
-//extern int current_buzz;
-
-/*__________________________________________________________
- *                                                          *
+/*
  *  Delay functions for HI-TECH C on the PIC18
  *
  *  Functions available:
  *      DelayUs(x)  Delay specified number of microseconds
- *      DelayMs(x)  Delay specified number of milliseconds                     *
- *__________________________________________________________*/
+ *      DelayMs(x)  Delay specified number of milliseconds
+*/
+
 
 
 
