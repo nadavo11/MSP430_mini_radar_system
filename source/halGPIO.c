@@ -1,210 +1,11 @@
-#include  "../header/halGPIO.h"     // private library - HAL layer
-#include  "../header/flash.h"     // private library - FLASH layer
-#include "stdio.h"
-#include "stdint.h"
-#include "string.h"
-//#include "stdlib.h"
+#include  "../header/halGPIO.h"
+unsigned int EndOfRecord = 0;
 
-
-// Global Variables
-int j=0;
-char *ptr1, *ptr2, *ptr3;
-short MSBIFG = 0;
-short stateIFG = 1; // 0-state changed -> send state(pb pressed)
-int rotateIFG = 1;
-unsigned int delay_time = 500;
-const unsigned int timer_half_sec = 65535;
-unsigned int i = 0;
-unsigned int tx_index;
-char counter_str[4];
-short Vr[] = {0, 0}; //Vr[0]=Vry , Vr[1]=Vrx
-const short state_changed[] = {1000, 1000}; // send if button pressed - state changed
-char stringFromPC[80];
-char file_content[80];
-int ExecuteFlag = 0;
-int FlashBurnIFG = 0;
-int SendFlag = 0;
-int startRotateLEDs = 0x10;
-int* rotateLEDs = &startRotateLEDs;
-int counter = 514;
-char step_str[4];
-char finish_str[3] = "FIN";
-int curr_counter = 0;
-short finishIFG = 0;
-//--------------------------------------------------------------------
-//             System Configuration  
-//--------------------------------------------------------------------
-void sysConfig(void){ 
-
-	ADCconfig();
-	StopAllTimers();
-	UART_init();
-    GPIOconfig();
-}
-//--------------------------------------------------------------------
-/*__________________________________________________________
- *                                                          *
- *         lcd strobe functions                     *
- *__________________________________________________________*/
-void lcd_strobe(){
-    LCD_EN(1);
-    asm("NOP");
-    // asm("NOP");
-    LCD_EN(0);
-}
-
-
-//--------------------------------------------------------------------
-// 				Set Byte to Port
-//--------------------------------------------------------------------
-void print2RGB(char ch){
-    RGBArrPortOut = ch;
-} 
-
-//--------------------------------------------------------------------
-//              Send FINISH to PC
-//--------------------------------------------------------------------
-void send_finish_to_PC(){
-    finishIFG = 1;
-    tx_index = 0;
-    UCA0TXBUF = finish_str[tx_index++];
-    IE2 |= UCA0TXIE;                        // Enable USCI_A0 TX interrupt
-    __bis_SR_register(LPM0_bits + GIE); // Sleep
-    START_TIMERA0(10000);
-    finishIFG = 0;
-}
-
-//--------------------------------------------------------------------
-//              Send degree to PC
-//--------------------------------------------------------------------
-void send_degree_to_PC(){
-    tx_index = 0;
-    UCA0TXBUF = step_str[tx_index++];
-    IE2 |= UCA0TXIE;                        // Enable USCI_A0 TX interrupt
-    __bis_SR_register(LPM0_bits + GIE); // Sleep
-    START_TIMERA0(10000);
-}
-
-//---------------------------------------------------------------------
-//            General Function
-//---------------------------------------------------------------------
-//-----------------------------------------------------------------------
-void int2str(char *str, unsigned int num){
-    int strSize = 0;
-    long tmp = num, len = 0;
-    int j;
-    if (tmp == 0){
-        str[strSize] = '0';
-        return;
-    }
-    // Find the size of the intPart by repeatedly dividing by 10
-    while(tmp){
-        len++;
-        tmp /= 10;
-    }
-
-    // Print out the numbers in reverse
-    for(j = len - 1; j >= 0; j--){
-        str[j] = (num % 10) + '0';
-        num /= 10;
-    }
-    strSize += len;
-    str[strSize] = '\0';
-}
-
-//-----------------------------------------------------------------------
-uint32_t hex2int(char *hex) {
-    uint32_t val = 0;
-    int o;
-    for(o=0; o<2; o++) {
-        // get current character then increment
-        uint8_t byte = *hex++;
-        // transform hex character to the 4bit equivalent number, using the ascii table indexes
-        if (byte >= '0' && byte <= '9') byte = byte - '0';
-        else if (byte >= 'a' && byte <='f') byte = byte - 'a' + 10;
-        else if (byte >= 'A' && byte <='F') byte = byte - 'A' + 10;
-        // shift 4 to make space for new digit, and add the 4 bits of the new digit
-        val = (val << 4) | (byte & 0xF);
-    }
-    return val;
-}
-//-----------------------------------------------------------------------
-void motorGoToPosition(uint32_t stepper_degrees, char script_state){
-
-    int clicks_cnt;
-    uint32_t step_counts;
-    uint32_t calc_temp;
-    calc_temp = stepper_degrees * counter;
-    step_counts = (calc_temp / 360); // how much clicks to wanted degree
-
-    //RK code
-    int diff = step_counts - curr_counter;
-    if(0 <= diff){ //move CW
-        for (clicks_cnt = 0; clicks_cnt < diff; clicks_cnt++){
-            curr_counter++;
-            Stepper_clockwise(150);
-            START_TIMERA0(10000);
-            //send data only if FINISH or stepper_deg (state 6)
-            if(script_state == '6'){
-                int2str(step_str, curr_counter);
-                send_degree_to_PC(); }
-        }
-        if (script_state == '7') {
-            int2str(step_str, curr_counter);
-           // sprintf(step_str, "%d", curr_counter);
-            send_degree_to_PC(); }
-        sprintf(step_str, "%s", "FFFF"); // add finish flag
-        send_degree_to_PC();
-    }
-    else{ // move CCW
-        for (clicks_cnt = diff; clicks_cnt < 0; clicks_cnt++){
-            curr_counter--;
-            Stepper_counter_clockwise(150);
-            START_TIMERA0(10000);
-            //send data only if FINISH or stepper_deg (state 6)
-            if(script_state == '6'){
-                int2str(step_str, curr_counter);
-          //      sprintf(step_str, "%d", curr_counter);
-                send_degree_to_PC(); }
-        }
-        if (script_state == '7') {
-            int2str(step_str, curr_counter);
-        //    sprintf(step_str, "%d", curr_counter);
-            send_degree_to_PC(); }
-        sprintf(step_str, "%s", "FFFF"); // add finish flag
-        send_degree_to_PC();
-    }
-}
-//--------------------------------------------------------------------
-//              Print Byte to 8-bit LEDs array
-//--------------------------------------------------------------------
-void print2LEDs(unsigned char ch){
-    LEDsArrPortOut = ch;
-}
-
-//----------------------Count Timer Calls---------------------------------
-void timer_call_counter(){
-
-    unsigned int num_of_halfSec;
-
-    num_of_halfSec = (int) delay_time / half_sec;
-    unsigned int res;
-    res = delay_time % half_sec;
-    res = res * clk_tmp;
-
-    for (i=0; i < num_of_halfSec; i++){
-        TIMER_A0_config(timer_half_sec);
-        __bis_SR_register(LPM0_bits + GIE);       // Enter LPM0 w/ int until Byte RXed
-    }
-
-    if (res > 1000){
-        TIMER_A0_config(res);
-        __bis_SR_register(LPM0_bits + GIE);       // Enter LPM0 w/ int until Byte RXed
-    }
-}
-//---------------------------------------------------------------------
-//            Enter from LPM0 mode
-//---------------------------------------------------------------------
+unsigned volatile int temp[2],i=0,j=0,diff,msc_cnt=0;
+char message[50];
+char new_x[50];
+int First_Time = 0x01;
+int count=0;
 void enterLPM(unsigned char LPM_level){
 	if (LPM_level == 0x00) 
 	  _BIS_SR(LPM0_bits);     /* Enter Low Power Mode 0 */
@@ -212,239 +13,320 @@ void enterLPM(unsigned char LPM_level){
 	  _BIS_SR(LPM1_bits);     /* Enter Low Power Mode 1 */
         else if(LPM_level == 0x02) 
 	  _BIS_SR(LPM2_bits);     /* Enter Low Power Mode 2 */
-	else if(LPM_level == 0x03) 
+	else if(LPM_level == 0x03)
 	  _BIS_SR(LPM3_bits);     /* Enter Low Power Mode 3 */
         else if(LPM_level == 0x04) 
 	  _BIS_SR(LPM4_bits);     /* Enter Low Power Mode 4 */
 }
-//---------------------------------------------------------------------
-//            Enable interrupts
-//---------------------------------------------------------------------
+
 void enable_interrupts(){
   _BIS_SR(GIE);
 }
-//---------------------------------------------------------------------
-//            Disable interrupts
-//---------------------------------------------------------------------
+
 void disable_interrupts(){
   _BIC_SR(GIE);
 }
 
-//---------------------------------------------------------------------
-//            Start Timer With counter
-//---------------------------------------------------------------------
-void START_TIMERA0(unsigned int counter){
-    TIMER_A0_config(counter);
-    __bis_SR_register(LPM0_bits + GIE);       // Enter LPM0 w/ interrupt
+void lcd_cmd(unsigned char c){
+
+    LCD_WAIT; // may check LCD busy flag, or just delay a little, depending on lcd.h
+
+    if (LCD_MODE == FOURBIT_MODE)
+    {
+        LCD_DATA_WRITE &= ~OUTPUT_DATA;// clear bits before new write
+        LCD_DATA_WRITE |= ((c >> 4) & 0x0F) << LCD_DATA_OFFSET;
+        lcd_strobe();
+        LCD_DATA_WRITE &= ~OUTPUT_DATA;
+        LCD_DATA_WRITE |= (c & (0x0F)) << LCD_DATA_OFFSET;
+        lcd_strobe();
+    }
+    else
+    {
+        LCD_DATA_WRITE = c;
+        lcd_strobe();
+    }
 }
-//---------------------------------------------------------------------
-//            Start Timer1 With counter
-//---------------------------------------------------------------------
-void START_TIMERA1(unsigned int counter){
-    TIMER_A1_config(counter);
-    __bis_SR_register(LPM0_bits + GIE);       // Enter LPM0 w/ interrupt
+
+void lcd_data(unsigned char c){
+
+    LCD_WAIT; // may check LCD busy flag, or just delay a little, depending on lcd.h
+
+    LCD_DATA_WRITE &= ~OUTPUT_DATA;
+    LCD_RS(1);
+    if (LCD_MODE == FOURBIT_MODE)
+    {
+            LCD_DATA_WRITE &= ~OUTPUT_DATA;
+            LCD_DATA_WRITE |= ((c >> 4) & 0x0F) << LCD_DATA_OFFSET;
+            lcd_strobe();
+            LCD_DATA_WRITE &= (0xF0 << LCD_DATA_OFFSET) | (0xF0 >> 8 - LCD_DATA_OFFSET);
+            LCD_DATA_WRITE &= ~OUTPUT_DATA;
+            LCD_DATA_WRITE |= (c & 0x0F) << LCD_DATA_OFFSET;
+            lcd_strobe();
+    }
+    else
+    {
+            LCD_DATA_WRITE = c;
+            lcd_strobe();
+    }
+
+    LCD_RS(0);
 }
-// ------------------------------------------------------------------
-//                     Polling delays
-//---------------------------------------------------------------------
-//******************************************************************
-// Delay usec functions
-//******************************************************************
+
+void lcd_puts(const char * s){
+    int i=0;
+    while(i<16 &&*s!='\0'){
+        lcd_data(*s++);
+        i++;
+    }
+    lcd_new_line;
+    i=0;
+    while(i<16 && *s!='\0'){
+            lcd_data(*s++);
+            i++;
+            if((int)*(s)=='\0') i=16;
+    }
+
+
+}
+
+void lcd_putrow(const char * s){
+    int i=0;
+    while(i<16 &&*s!='\0'){
+        lcd_data(*s++);
+        i++;
+    }
+}
+
 void DelayUs(unsigned int cnt){
 
     unsigned char i;
     for(i=cnt ; i>0 ; i--) asm("nop"); // tha command asm("nop") takes raphly 1usec
 
 }
-//******************************************************************
-// Delay msec functions
-//******************************************************************
+
 void DelayMs(unsigned int cnt){
 
     unsigned char i;
     for(i=cnt ; i>0 ; i--) DelayUs(1000); // tha command asm("nop") takes raphly 1usec
 
 }
-//******************************************************************
-//            Polling based Delay function
-//******************************************************************
-void delay(unsigned int t){  //
-    volatile unsigned int i;
 
-    for(i=t; i>0; i--);
-}
-//---------------**************************----------------------------
-//               Interrupt Services Routines
-//---------------**************************----------------------------
-//*********************************************************************
-//                        TIMER A0 ISR
-//*********************************************************************
-#pragma vector = TIMER0_A0_VECTOR // For delay
-__interrupt void TimerA_ISR (void)
-{
-    StopAllTimers();
-    LPM0_EXIT;
-}
+void lcd_init(){
 
-//*********************************************************************
-//                        TIMER A ISR
-//*********************************************************************
-#pragma vector = TIMER1_A0_VECTOR // For delay
-__interrupt void Timer1_A0_ISR (void)
-{
-    if(!TAIFG) { StopAllTimers();
-    LPM0_EXIT;
+    char init_value;
+
+    if (LCD_MODE == FOURBIT_MODE) init_value = 0x3 << LCD_DATA_OFFSET;
+    else init_value = 0x3F;
+
+    LCD_RS_DIR(OUTPUT_PIN);
+    LCD_EN_DIR(OUTPUT_PIN);
+    LCD_RW_DIR(OUTPUT_PIN);
+    LCD_DATA_DIR |= OUTPUT_DATA;
+    LCD_RS(0);
+    LCD_EN(0);
+    LCD_RW(0);
+    DelayMs(15);
+    LCD_DATA_WRITE &= ~OUTPUT_DATA;
+    LCD_DATA_WRITE |= init_value;
+    lcd_strobe();
+    DelayMs(5);
+    LCD_DATA_WRITE &= ~OUTPUT_DATA;
+    LCD_DATA_WRITE |= init_value;
+    lcd_strobe();
+    DelayUs(200);
+    LCD_DATA_WRITE &= ~OUTPUT_DATA;
+    LCD_DATA_WRITE |= init_value;
+    lcd_strobe();
+    if (LCD_MODE == FOURBIT_MODE){
+        LCD_WAIT; // may check LCD busy flag, or just delay a little, depending on lcd.h
+        LCD_DATA_WRITE &= ~OUTPUT_DATA;
+        LCD_DATA_WRITE |= 0x2 << LCD_DATA_OFFSET; // Set 4-bit mode
+        lcd_strobe();
+        lcd_cmd(0x28); // Function Set
     }
+    else lcd_cmd(0x3C); // 8bit,two lines,5x10 dots
+
+    lcd_cmd(0xF); //Display On, Cursor On, Cursor Blink
+    lcd_cmd(0x1); //Display Clear
+    lcd_cmd(0x6); //Entry Mode
+    lcd_cmd(0x80); //Initialize DDRAM address to zero
 }
 
-//*********************************************************************
-//                         ADC10 ISR
-//*********************************************************************
-#pragma vector = ADC10_VECTOR
-__interrupt void ADC10_ISR (void)
+void lcd_strobe(){
+  LCD_EN(1);
+  asm("NOP");
+ // asm("NOP");
+  LCD_EN(0);
+}
+
+void lcd_print_voltage(int num) {
+    int thousands,hundreds,tens,ones;
+    thousands = (num / 1000) + 0x30; // 0x30 is ACCI of '0'
+    num %= 1000;
+    hundreds = (num / 100) + 0x30;
+    num %= 100;
+    tens = (num / 10) + 0x30;
+    num %= 10;
+    ones = num + 0x30;
+    lcd_data((char)thousands);
+    lcd_data((char)hundreds);
+    lcd_data((char)tens);
+    lcd_data((char)ones);
+}
+
+void start_msg(){
+  msc_cnt = 0;
+  IE2 |= UCA0TXIE;                        // Enable USCI_A0 TX interrupt 
+  UCA0TXBUF = message[msc_cnt++];
+}
+
+void start_PWM(){
+  TA1CCTL1 |= CCIE;
+}
+
+void stop_PWM(){
+  TA1CCTL1 &= ~CCIE;
+}
+/*
+  TA1.1 ISR for capture and PWM
+
+
+*/
+// TA0_A1 Interrupt vector
+#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
+#pragma vector = TIMER1_A1_VECTOR
+__interrupt void TIMER1_A1_ISR (void)
+#elif defined(__GNUC__)
+void __attribute__ ((interrupt(TIMER1_A1_VECTOR))) TIMER1_A1_ISR (void)
+#else
+#error Compiler not supported!
+#endif
 {
-   LPM0_EXIT;
+  switch(__even_in_range(TA1IV,0x0A))
+  {
+      case  TA1IV_NONE: break;              // Vector  0:  No interrupt
+      case  TA1IV_TACCR2:                   // Vector  2:  TACCR1 CCIFG
+          temp[i] = TA1CCR2;
+          i += 1;
+         // TA1CCTL1 &= ~CCIFG;
+          
+          if (i==2) {
+              if(temp[0] < temp[1]){
+                  diff = temp[1] - temp[0];
+              }
+              else{
+                  //max value of TBR is 131071, in hex 0xFFFF
+                  diff = 0xFFFF - temp[0] + temp[1];
+              }
+              i=0;
+              LPM0_EXIT;
+          }
+          
+        break;
+      case TA1IV_TACCR1:        
+//        TA1CCTL1 &= ~CCIFG;
+//        LPM0_EXIT;        
+        break;             // Vector  4:  TACCR2 CCIFG
+      case TA1IV_6: break;                  // Vector  6:  Reserved CCIFG
+      case TA1IV_8: break;                  // Vector  8:  Reserved CCIFG
+      case TA1IV_TAIFG: break;              // Vector 10:  TAIFG
+      default: 	break;
+  }
 }
+//  #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
+//  #pragma vector = TIMER1_A1_VECTOR
+//  __interrupt void Timer_A1 (void)
+//  #elif defined(__GNUC__)
+//  void __attribute__ ((interrupt(TIMER1_A1_VECTOR))) Timer_A1 (void)
+//  #else
+//  #error Compiler not supported!
+//  #endif
+//  {
+//    switch(__even_in_range(TA1IV,0x0A)){
+//        case TA1IV_NONE:
+//            break;
+//        /****** capture ISR *****
+//         *
+//         *      TB2 acts in capture
+//         * *********************/
+//        case TA1IV_TACCR1:           //CAPTURE ISR  
+//          TA1CCTL1 &= ~CCIFG;
+//          LPM0_EXIT;
+//          
+//            break;
+//          
+//        case TA1IV_TACCR2:           //CAPTURE ISR        
+//              temp[i] = TA1CCR2;
+//              i += 1;
+//             // TA1CCTL1 &= ~CCIFG;
+//          
+//          if (i==2) {
+//              if(temp[0] < temp[1]){
+//                  diff = temp[1] - temp[0];
+//              }
+//              else{
+//                  //max value of TBR is 131071, in hex 0xFFFF
+//                  diff = 0xFFFF - temp[0] + temp[1];
+//              }
+//              i=0;
+//              LPM0_EXIT;
+//          }
+//          break;
+//        
+//
+//        }
+//  }
 
-//-------------------ATAN2- Fixed point - returns degrees---------------------------
-int16_t atan2_fp(int16_t y_fp, int16_t x_fp)
+
+// Timer A0 interrupt service routine
+#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
+#pragma vector=TIMER0_A0_VECTOR
+__interrupt void Timer_A (void)
+#elif defined(__GNUC__)
+void __attribute__ ((interrupt(TIMER0_A0_VECTOR))) Timer_A (void)
+#else
+#error Compiler not supported!
+#endif
 {
-    int32_t coeff_1 = 45;
-    int32_t coeff_1b = -56; // 56.24;
-    int32_t coeff_1c = 11;  // 11.25
-    int16_t coeff_2 = 135;
+  LPM0_EXIT;
 
-    int16_t angle = 0;
-
-    int32_t r;
-    int32_t r3;
-
-    int16_t y_abs_fp = y_fp;
-    if (y_abs_fp < 0)
-        y_abs_fp = -y_abs_fp;
-
-    if (y_fp == 0)
-    {
-        if (x_fp >= 0)
-        {
-            angle = 0;
-        }
-        else
-        {
-            angle = 180;
-        }
-    }
-    else if (x_fp >= 0)
-    {
-        r = (((int32_t)(x_fp - y_abs_fp)) << MULTIPLY_FP_RESOLUTION_BITS) /
-((int32_t)(x_fp + y_abs_fp));
-
-        r3 = r * r;
-        r3 =  r3 >> MULTIPLY_FP_RESOLUTION_BITS;
-        r3 *= r;
-        r3 =  r3 >> MULTIPLY_FP_RESOLUTION_BITS;
-        r3 *= coeff_1c;
-        angle = (int16_t) (     coeff_1 + ((coeff_1b * r + r3) >>
-MULTIPLY_FP_RESOLUTION_BITS)   );
-    }
-    else
-    {
-        r = (((int32_t)(x_fp + y_abs_fp)) << MULTIPLY_FP_RESOLUTION_BITS) /
-((int32_t)(y_abs_fp - x_fp));
-        r3 = r * r;
-        r3 =  r3 >> MULTIPLY_FP_RESOLUTION_BITS;
-        r3 *= r;
-        r3 =  r3 >> MULTIPLY_FP_RESOLUTION_BITS;
-        r3 *= coeff_1c;
-        angle = coeff_2 + ((int16_t)    (((coeff_1b * r + r3) >>
-MULTIPLY_FP_RESOLUTION_BITS))   );
-    }
-
-    if (y_fp < 0)
-        return (360-angle);     // negate if in quad III or IV
-    else
-        return (angle);
+  
 }
 
 
-//***********************************TX ISR******************************************
+
+//#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
+//#pragma vector = TIMER0_A1_VECTOR
+//__interrupt void Timer_A01 (void)
+//#elif defined(__GNUC__)
+//void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) Timer_A01 (void)
+//#else
+//#error Compiler not supported!
+//#endif
+//{
+//  TA0CCTL0 &= ~CCIE;           
+//
+//  LPM0_EXIT;
+//
+//}
+
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector=USCIAB0TX_VECTOR
 __interrupt void USCI0TX_ISR(void)
-#elif defined(__GNUC__)
+#elif defined(__GNUC__)8565
 void __attribute__ ((interrupt(USCIAB0TX_VECTOR))) USCI0TX_ISR (void)
 #else
 #error Compiler not supported!
 #endif
 {
-    if(state == state3 && finishIFG == 1){  // For script
-        UCA0TXBUF = finish_str[tx_index++];                 // TX next character
+  UCA0TXBUF = message[msc_cnt++];                 // TX next character
 
-        if (tx_index == sizeof step_str - 1) {   // TX over?
-            tx_index=0;
-            IE2 &= ~UCA0TXIE;                       // Disable USCI_A0 TX interrupt
-            stateStepp = stateDefault;
-            LPM0_EXIT;
-        }
-    }
+  if (msc_cnt == sizeof message - 1)              // TX over?
+    IE2 &= ~UCA0TXIE;                       // Disable USCI_A0 TX interrupt
 
-    if (state == state3 && finishIFG == 0){  // For script
-        UCA0TXBUF = step_str[tx_index++];                 // TX next character
 
-        if (tx_index == sizeof step_str - 1) {   // TX over?
-            tx_index=0;
-            IE2 &= ~UCA0TXIE;                       // Disable USCI_A0 TX interrupt
-            stateStepp = stateDefault;
-            LPM0_EXIT;
-        }
-    }
-    else if (state==state2 && stateStepp==stateStopRotate){
-        UCA0TXBUF = counter_str[tx_index++];                 // TX next character
-
-        if (tx_index == sizeof counter_str - 1) {   // TX over?
-            tx_index=0;
-            IE2 &= ~UCA0TXIE;                       // Disable USCI_A0 TX interrupt
-            stateStepp = stateDefault;
-            LPM0_EXIT;
-        }
-    }
-    else if (stateIFG && state == state1){  // Send Push Button state
-        if(MSBIFG) UCA0TXBUF = (state_changed[i++]>>8) & 0xFF;
-        else UCA0TXBUF = state_changed[i] & 0xFF;
-        MSBIFG ^= 1;
-
-        if (i == 2) {  // TX over?
-            i=0;
-            IE2 &= ~UCA0TXIE;                       // Disable USCI_A0 TX interrupt
-            START_TIMERA0(10000);
-            stateIFG = 0;
-            LPM0_EXIT;
-        }
-    }
-    else if(!stateIFG && state == state1){ //send data for painter!!
-        if(MSBIFG) UCA0TXBUF = (Vr[i++]>>8) & 0xFF;
-        else UCA0TXBUF = Vr[i] & 0xFF;
-        MSBIFG ^= 1;
-
-        if (i == 2) {  // TX over?
-            i=0;
-            IE2 &= ~UCA0TXIE;                       // Disable USCI_A0 TX interrupt
-            START_TIMERA0(10000);
-            LPM0_EXIT;
-        }
-    } else{
-        strcpy(stringFromPC, "Wallak\n");
-        UCA0TXBUF = stringFromPC[tx_index++];                 // TX next character
-
-        if (tx_index == sizeof stringFromPC - 1) {   // TX over?
-            tx_index=0;
-            IE2 &= ~UCA0TXIE;                       // Disable USCI_A0 TX interrupt
-            LPM0_EXIT;
-        }
-
-    }
 }
-//***********************************RX ISR******************************************
+
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector=USCIAB0RX_VECTOR
 __interrupt void USCI0RX_ISR(void)
@@ -454,87 +336,169 @@ void __attribute__ ((interrupt(USCIAB0RX_VECTOR))) USCI0RX_ISR (void)
 #error Compiler not supported!
 #endif
 {
-    stringFromPC[j] = UCA0RXBUF;  // Get Whole string from PC
-    j++;
-    // This if to get the file data. Added 'Z' to the end of the data in the python file, acts like ack
-    if (stringFromPC[j-1] == 'Z'){
+//  IE2 &= ~UCA0RXIE;
+  if(state==state4){
+    new_x[j++] = UCA0RXBUF;
+    if (j==4){
         j = 0;
-        SendFlag = 0;
-        strcpy(file_content, stringFromPC);
-     //   ExecuteFlag = 1;
+        state = state0;
+ //       IE2 |= UCA0RXIE;
+        LPM0_EXIT;
+        
     }
-    // This if to get the file name
-    if (!SendFlag && stringFromPC[j-1] == '\x0a'){
-        for (i=0; i < j; i++){
-            file.file_name[i] = stringFromPC[i];
+  }else if      (UCA0RXBUF == '1')                     // '1' received?
+        {state = state1; }      // Set state1
+
+        else if (UCA0RXBUF == '2')                // '2' received?
+        {state = state2; }      // Set state2
+
+        else if (UCA0RXBUF == '3')                // '3' received?
+        { state = state3; }   // Set state3
+
+        else if(UCA0RXBUF == '4'){
+            state=state4;
+
+            IE2 |= UCA0TXIE;
+            UCA0TXBUF ='4';
         }
-        SendFlag = 1;
-        j = 0;
-    }
-    if (stringFromPC[j-1] == 'W'){ //pointer for 1st selected file
-        FlashBurnIFG = 1;
-        ptr1 = (char*) 0x1000;
-        file.file_ptr[0]=ptr1;
-        file.num_of_files = 1;
-        j = 0;
-    }
-    if (stringFromPC[j-1] == 'X'){ //pointer for 2nd selected file
-        FlashBurnIFG = 1;
-        ptr2 = (char*) 0x1040;
-        file.file_ptr[1]=ptr2;
-        file.num_of_files = 2;
-        j = 0;
-    }
-    if (stringFromPC[j-1] == 'Y'){ //pointer for 3rd selected file
-        FlashBurnIFG = 1;
-        ptr3 = (char*) 0x1080;
-        file.file_ptr[2]=ptr3;
-        file.num_of_files = 3;
-        j = 0; // Added by mg at 1:33 30.7.2022 at night
-    }
-
-    if (stringFromPC[j-1] == 'T'){ //index of executed list
-        ExecuteFlag = 1;
-        j = 0; // Added by mg at 1:33 30.7.2022 at night
-        file.num_of_files = 1;
-    }
-    if (stringFromPC[j-1] == 'U'){
-        ExecuteFlag = 1;
-        j = 0; // Added by mg at 1:33 30.7.2022 at night
-        file.num_of_files = 2;
-    }
-    if (stringFromPC[j-1] == 'V'){
-        ExecuteFlag = 1;
-        j = 0; // Added by mg at 1:33 30.7.2022 at night
-        file.num_of_files = 3;
-    }
 
 
-    // If's for states
-    if (stringFromPC[0] == 'm') {state = state0; stateStepp=stateDefault; rotateIFG = 0; j = 0;}
-    else if (stringFromPC[0] == 'P') { state = state1; stateStepp=stateDefault; rotateIFG = 0; j = 0;}  //Was p
-    else if (stringFromPC[0] == 'C') { state = state2; stateStepp=stateDefault; rotateIFG = 0; j = 0;}  //Was c
-    else if (stringFromPC[0] == 's') { state = state3; stateStepp=stateDefault; rotateIFG = 0; j = 0;}
+        else if (UCA0RXBUF == '5')                // '5' received?
+        {state = state5; }    // Set state5
 
-    else if (stringFromPC[0] == 'A'){ stateStepp = stateAutoRotate; rotateIFG = 1; j = 0;}// Auto Rotate
-    else if (stringFromPC[0] == 'M'){ stateStepp = stateStopRotate; rotateIFG = 0; j = 0;}// Stop Rotate
-    else if (stringFromPC[0] == 'J'){ stateStepp = stateJSRotate; j = 0;}// JoyStick Rotatefixed pmsp430
+        else if (UCA0RXBUF == '6')                // '6' received?
+        {state = state6; }
+            // Set state6
+        else if (UCA0RXBUF == '7')                // '7' received?
+        {state = state7; }                         // Set state7
 
-
-    LPM0_EXIT;
+        else if (UCA0RXBUF == '8')                // '8' received?
+        {state = state0; }                         // Set state0
+ // IE2 |= UCA0RXIE;
+  if (state!=state4){
+    switch(lpm_mode){
+        case mode0:
+            LPM0_EXIT; // must be called from ISR only
+            break;
+        case mode1:
+            LPM1_EXIT; // must be called from ISR only
+            break;
+        case mode2:
+            LPM2_EXIT; // must be called from ISR only
+            break;
+        case mode3:
+            LPM3_EXIT; // must be called from ISR only
+            break;
+        case mode4:
+            LPM4_EXIT; // must be called from ISR only
+            break;
+    }
+  }
 }
 
-//*********************************************************************
-//            Port1 Interrupt Service Routine
-//*********************************************************************
-#pragma vector=PORT1_VECTOR
-  __interrupt void Joystick_handler(void){
-      IE2 &= ~UCA0TXIE;                       // Disable USCI_A0 TX interrupt
-      delay(debounceVal);
 
-      if(JoyStickIntPend & BIT5){ //int at P1.5
-          stateIFG = 1; // send state!
-          JoyStickIntPend &= ~BIT5;
-      }
-      IE2 |= UCA0TXIE;                       // enable USCI_A0 TX interrupt
+//    switch(lpm_mode){
+//        case mode0:
+//            LPM0_EXIT; // must be called from ISR only
+//            break;
+//
+//        case mode1:
+//            LPM1_EXIT; // must be called from ISR only
+//            break;
+//
+//        case mode2:
+//            LPM2_EXIT; // must be called from ISR only
+//            break;
+//
+//        case mode3:
+//            LPM3_EXIT; // must be called from ISR only
+//            break;
+//
+//        case mode4:
+//            LPM4_EXIT; // must be called from ISR only
+//            break;
+//        }
+
+          //TBCTL &= ~TBIFG; // Clear the interrupt flag
+          //TBCTL = TBCLR;
+
+
+// ADC10 interrupt service routine
+#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
+#pragma vector=ADC10_VECTOR
+__interrupt void ADC10_ISR(void)
+#elif defined(__GNUC__)
+void __attribute__ ((interrupt(ADC10_VECTOR))) ADC10_ISR (void)
+#else
+#error Compiler not supported!
+#endif
+{
+ // __bic_SR_register_on_exit(CPUOFF);        // Clear CPUOFF bit from 0(SR)
+ // ADC10CTL0 &= ~ADC10IFG;
+//    ADC10CTL0=0x00;
+//    ADC10AE0=0x00;
+   // LPM0_EXIT;
+    __bic_SR_register_on_exit(CPUOFF);
 }
+
+//  #pragma vector = DMA_VECTOR
+//  __interrupt void DMA_ISR (void){
+//      LPM0_EXIT;
+//      _BIC_SR(DMAIV);
+//  }
+
+
+//
+//#pragma vector=PORT1_VECTOR  // For Push Buttons
+//  __interrupt void PBs_handler(void){
+//      DelayUs(debounceVal);
+//
+//	if(PBsArrIntPend & PB0){
+//	    lcd_clear();
+//	    state = state1;
+//	    PBsArrIntPend &= ~PB0;
+//	}
+//    else if(PBsArrIntPend & PB1){
+//        lcd_clear();
+//        state = state2;
+//        lcd_home();
+//	    PBsArrIntPend &= ~PB1;
+//    }
+//    else if(PBsArrIntPend & PB2){
+//        lcd_clear();
+//        state = state3;
+//	    PBsArrIntPend &= ~PB2;
+//
+//    }
+//
+//    else if(PBsArrIntPend & PB3){
+//
+//           state = state4;
+//           PBsArrIntPend &= ~PB3;
+//       }
+//    else PBsArrIntPend &= 0x0F;
+//
+//        switch(lpm_mode){
+//		case mode0:
+//		 LPM0_EXIT;
+//		 break;
+//
+//		case mode1:
+//		 LPM1_EXIT;
+//		 break;
+//
+//		case mode2:
+//		 LPM2_EXIT;
+//		 break;
+//
+//        case mode3:
+//		 LPM3_EXIT;
+//		 break;
+//
+//        case mode4:
+//		 LPM4_EXIT;
+//		 break;
+//	}
+//
+//}
+//

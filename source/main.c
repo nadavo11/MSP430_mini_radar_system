@@ -1,107 +1,84 @@
 #include  "../header/api.h"    		// private library - API layer
 #include  "../header/app.h"    		// private library - APP layer
 #include  <stdio.h>
-
+////UPDATE14;55
 enum FSMstate state;
-enum Stepperstate stateStepp;
 enum SYSmode lpm_mode;
+//unsigned int i = 0;
+unsigned int del60ms=Periode_60ms_val;
+unsigned int del10us=10;
+char st[16]="sdf",ff[16];
+extern int temp[2], side;
+volatile unsigned int Results[2];
+unsigned int Index,g=0;
 
-
-char *msg = "Wallak";
 void main(void){
+    P2OUT = 0x00;
 
-  state = stateJSRotate;  // start in idle state on RESET
-  stateStepp = stateDefault;
-  lpm_mode = mode0;     // start in idle state on RESET
-  sysConfig();     // Configure GPIO, Init ADC
+    state = state1;       // start in idle state on RESET
+    lpm_mode = mode0;     // start in idle state on RESET
+    sysConfig();          // Configure GPIO, Stop Timers, Init LCD
+    //_BIS_SR(CPUOFF);                          // Enter LPM0
+    int a = 510;
 
+    while(1){
 
-  UCA0TXBUF = 'a' & 0xFF;
-  MSBIFG = 1;
-  IE2 |= UCA0TXIE;
-  while(1){
-	switch(state){
+        switch(state){
+        case state0: //idle - Sleep
 
-	case state0: //   StepperUsingJoyStick
-	    IE2 |= UCA0RXIE; // Enable USCI_A0 RX interrupt
-	    switch(stateStepp){
-	    case stateAutoRotate:
-	        while(rotateIFG){ curr_counter++; Stepper_clockwise(200); }
-	        break;
+     //       enterLPM(mode0);
+        break;
 
-        case stateStopRotate:
-            break;
+        case state1: //PB0 recorder
+            while(1){    //servo motor
+                a+=39;
+                if(a>180)
+                  a=0;
 
-        case stateJSRotate:
-            counter = 514;
-            StepperUsingJoyStick();
-            break;
-        case stateDefault:
-         //   counter = 514;
-        //    motorGoToPosition(360, 1);
-            __bis_SR_register(LPM0_bits + GIE);       // Enter LPM0 w/ int until Byte RXed
-            break;
-	    }
-	    break;
+                set_angel(a);       // set CCR3
+                LDR_measurement(Results);
+                print_measurments(Results[0] ,Results[1]);
+                delay_us(Periode_60ms_val);
+                stop_PWM();
 
-	case state1: // Paint
-	    JoyStickIntEN |= BIT5;
-	 //   IE2 |= UCA0RXIE; // Enable USCI_A0 RX interrupt
-	    while (state == state1){
-	        JoyStickADC_Painter();
-	    }
-        JoyStickIntEN &= ~BIT5;
-	    break;
+            }
+        break;
 
-	case state2: // Calibrate
-        IE2 |= UCA0RXIE;                          // Enable USCI_A0 RX interrupt
+        case state2: //sonic
+            while(1){
+               trigger_ultrasonic();
+                _BIS_SR(LPM0_bits + GIE);
 
-        switch(stateStepp){
-        case stateDefault:
-            __bis_SR_register(LPM0_bits + GIE);       // Enter LPM0 w/ int until Byte RXed
-            break;
+                sprintf(st, "%d", diff);
 
-        case stateAutoRotate: // start rotate
-            counter = 0;
-            while(rotateIFG) { Stepper_clockwise(100); counter++; }
-            break;
+               cursor_off;
+               lcd_reset();
+               lcd_puts(st);
+               delay_us(Periode_60ms_val);
+            }
+        break;
 
-        case stateStopRotate: // stop and set phi
-            calibrate();
-            break;
+        case state3:
+
+            while(1){
+                LDR_measurement(Results);
+                print_measurments(Results[0] ,Results[1]);
+            }
+        break;
+        case state4:
+            while(1){
+                send_msg();
+
+                _BIS_SR(LPM3_bits + GIE);                 // Enter LPM3 w/ interrupt
+
+            }
+        break;
         }
-	    break;
 
-	case state3:  //Script
-        IE2 |= UCA0RXIE;                          // Enable USCI_A0 RX interrupt
-	    while ( state == state3){
-	        ScriptFunc();
-	    }
-		break;
-		
-	case state4: //
+    }
 
-		break;
-
-    case state5: //
-
-        break;
-
-    case state6: //
-
-        break;
-
-    case state7: //
-
-        break;
-
-    case state8: //
-
-        break;
-		
-	}
-  }
 }
+
 
   
   
