@@ -1,9 +1,10 @@
 import sys
 from queue import Queue
-PORT = 'COM5'
+PORT = 'COM13'
 TH = 10
+MAX_DIST = 12000
 from PyQt5 import QtGui, QtCore
-from PyQt5.QtWidgets import QPushButton, QApplication, QMainWindow, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import QPushButton, QApplication, QMainWindow, QVBoxLayout, QWidget, QFileDialog, QTextEdit
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import numpy as np
@@ -43,7 +44,6 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Radar Monitor")
         self.setGeometry(200, 200, 1400, 1200)
-
         # Create the main layout
         main_widget = QWidget(self)
         main_layout = QVBoxLayout(main_widget)
@@ -71,7 +71,8 @@ class MainWindow(QMainWindow):
         sm.set_array([])  # Set an empty array for now
 
         self.object_data = np.zeros(180) +60
-        self.light_data = np.zeros(180)
+        self.light_data1 = np.zeros(180)
+        self.light_data2 = np.zeros(180)
         self.previous_l = 0
 
         # Create the canvas
@@ -89,6 +90,9 @@ class MainWindow(QMainWindow):
         self.button3 = QPushButton("Integrated scan", self)
         self.button3.pressed.connect(self.scan_both)
 
+        self.button_mode_toggle = QPushButton("Toggle Mode", self)
+        self.button_mode_toggle.pressed.connect(self.toggle_mode)
+
         # Initialize the Arduino communication
         self.serial = QSerialPort(self)
         self.serial.setPortName(PORT)
@@ -104,6 +108,17 @@ class MainWindow(QMainWindow):
 
         main_layout.addWidget(self.button3)
 
+        main_layout.addWidget(self.button_mode_toggle)
+
+        # Text box for displaying script content
+        self.text_box = QTextEdit(self)
+        self.text_box.setReadOnly(True)
+
+
+        main_layout.addWidget(self.text_box)
+
+        # Flag to track the current mode (True for radar mode, False for script mode)
+        self.radar_mode = True
     @QtCore.pyqtSlot()
 
     def read_data(self):
@@ -115,22 +130,37 @@ class MainWindow(QMainWindow):
 
         # Read the UART signal from Arduino
         line = self.serial.readLine().data().decode().strip()
+        if len(line) == 1:
+            line.join(self.serial.readLine().data().decode().strip())
+        print(line)
+        print("_______________________")
+        line = line.split('|')
+        print(line)
+        r = MAX_DIST
+        if not line[0]:
+            line.pop(0)
+        if len(line) == 5 and not line[-1] and line[0] and line[1] and line[2] and line[3]:
+            phi = int(line[0])
+            l1 = int(line[1])
+            l2 = int(line[2])
+            r = int(line[3])
+            self.object_data[phi : phi+3] = min(abs(r), MAX_DIST)
+            self.light_data1[phi] = l1
+            self.light_data2[phi] = l2
 
-        line = line.split(' | ')
+            #print(np.argmin(self.light_data1))
 
-        phi = int(line[0])
-        l1 = int(line[1])
-        l2 = int(line[2])
-        r = int(line[3])
+
+
 
         # l = int(line[2])
 
         # Process the data from Arduino
         #object_data = np.array(line.split(','), dtype=int)
-        print(line)
-        line = 6
-        self.object_data[phi] = min(r, 60)
+
+
         # Update the radar plot
+
         self.update_radar(self.object_data)
     @QtCore.pyqtSlot()
     def update_radar(self, object_data):
@@ -150,7 +180,7 @@ class MainWindow(QMainWindow):
         self.ax.plot(theta, object_data)
 
         # Find the indices where objects are detected
-        object_indices = np.where(object_data < 60)[0]
+        object_indices = np.where(object_data < MAX_DIST)
 
         # Calculate the intensities of the detected objects
         intensities = object_data[object_indices]
@@ -165,8 +195,11 @@ class MainWindow(QMainWindow):
        #############################
        """
 
-        # plot the lights
-        self.ax.scatter(np.deg2rad(object_indices), intensities + 10, s=0, c="yellow", alpha=0.5, linestyle='')
+        # plot one light on the argmax of the light data
+        #self.ax.scatter(np.deg2radself.light_data1, 6000, s=100, c="yellow", alpha=0.5, linestyle='')
+
+
+        #self.ax.scatter(np.deg2rad(object_indices), intensities + 10, s=0, c="yellow", alpha=0.5, linestyle='')
 
 
         # Set the title and grid
@@ -197,6 +230,30 @@ class MainWindow(QMainWindow):
     def scan_both(self):
         # Write '1' to Arduino
         self.write_data('3')
+    def toggle_mode(self):
+        self.radar_mode = not self.radar_mode
+        if self.radar_mode:
+            # Show radar mode
+            self.text_box.hide()
+            self.canvas.show()
+            self.ax.clear()
+            self.update_radar(self.object_data)
+        else:
+            # Show script mode
+            self.text_box.show()
+            self.canvas.hide()
+            self.ax.clear()
+            self.text_box.clear()
+    #def load_txt(self):
+            # Open a file dialog to choose a .txt file
+            file_dialog = QFileDialog(self)
+            file_dialog.setNameFilter("Text Files (*.txt)")
+            if file_dialog.exec_():
+                file_path = file_dialog.selectedFiles()[0]
+                with open(file_path, "r") as file:
+                    script_content = file.read()
+                    self.text_box.setPlainText(script_content)
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
