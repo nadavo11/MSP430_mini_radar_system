@@ -6,16 +6,16 @@
 int fdfd=0;
 
 void UART_send(){
-    while (!(IFG2&UCA0TXIFG));                // USCI_A0 TX buffer ready?
+    //while (!(IFG2&UCA0TXIFG));                // USCI_A0 TX buffer ready?
     IE2 |= UCA0TXIE;                       // Disable USCI_A0 TX interrupt
-    UCA0TXBUF = message[0];                      // TX -> RXed character
+    UCA0TXBUF = message[msc_cnt];                      // TX -> next character
     __bis_SR_register(LPM0_bits);
 
 }
 
 void sendFormatMessage( int a, int b, int c, int d) {
-    snprintf(message, 20, "%d|%d|%d|%d\n", a, b, c, d);
-    msc_cnt=1;
+    snprintf(message, 30, "%d|%d|%d|%d\n", a, b, c, d);
+    msc_cnt=0;
     UART_send();
 }
 

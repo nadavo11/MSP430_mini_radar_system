@@ -37,12 +37,12 @@ void main(void){
 
                 set_angel(a);       // set CCR3
                 LDR_measurement(Results);
-
+                TA1CCTL2 |=CCIE;
                 trigger_ultrasonic();
-                //TA1CTL &= ~CCIE;
+
 
                 _BIS_SR(LPM0_bits + GIE);
-
+                TA1CCTL2 &= ~CCIE;
                 print_measurments(a ,Results[1]);
                 delay_us(Periode_60ms_val);
 

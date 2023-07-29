@@ -2,7 +2,7 @@
 unsigned int EndOfRecord = 0;
 
 unsigned volatile int temp[2],i=0,j=0,diff,msc_cnt=0;
-char message[50];
+char message[40];
 char new_x[50];
 char c;
 int First_Time = 0x01;
