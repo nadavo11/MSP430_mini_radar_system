@@ -87,22 +87,44 @@ void TimerA0_Config(){
 
     _BIS_SR(GIE);                     // enable interrupts globally
 }
+/** _______________________________________________________________________________________________*
+ *                                                                                                 *
+ *                                DCO config                                                       *
+ *                                                                                                 *
+ *  -----------------------------------------------------------------------------------------------*
+ * sets the clock frequency of the microcontroller to                                              *
+ * 1 MHz using the DCO (Digitally Controlled Oscillator).                                          *
+ *                                                                                                 *
+ *_________________________________________________________________________________________________*/
 
+void DCO_config() {
+
+    if (CALBC1_1MHZ==0xFF)                  // If calibration constant erased
+        while(1);                               // do not load, trap CPU!!
+
+
+    DCOCTL = 0;                               // Select lowest DCOx and MODx settings
+
+    BCSCTL1 = CALBC1_1MHZ;                    // Set DCO Frequency Range
+    DCOCTL = CALDCO_1MHZ;                      // Set DCO specific frequency within the range
+
+
+
+    //P2DIR = 0xFF;                             // All uuu.x outputs
+    //P2OUT = 0;                                // All P2.x reset
+    P1SEL = BIT1 + BIT2;                     // P1.1 = RXD, P1.2=TXD
+    P1SEL2 = BIT1 + BIT2;                     // P1.1 = RXD, P1.2=TXD
+//    P1DIR |= RXLED + TXLED;
+    P1OUT &= 0x01;
+}
 void UART_Config() {
   WDTCTL = WDTPW + WDTHOLD;                 // Stop WDT
-//  
-//  if (CALBC1_1MHZ==0xFF)					// If calibration constant erased
-//  {											
-//    while(1);                               // do not load, trap CPU!!	
-//  }
-//  DCOCTL = 0;                               // Select lowest DCOx and MODx settings
-//  BCSCTL1 = CALBC1_1MHZ;                    // Set DCO
-//  DCOCTL = CALDCO_1MHZ;
+
   
   UCA0CTL1 |= UCSSEL_2;                     // CLK = SMCLK
-  UCA0BR0 = 104;                           // 
-  UCA0BR1 = 0x00;                           //
-  UCA0MCTL = UCBRS0;               // 
+  UCA0BR0 = 104;                            // UART Baud Rate Control registers
+  UCA0BR1 = 0x00;                           // 1MHz 9600
+  UCA0MCTL = UCBRS0;                        // Modulation UCBRSx = 1
   UCA0CTL1 &= ~UCSWRST;                     // **Initialize USCI state machine**
   IE2 |= UCA0RXIE;                          // Enable USCI_A0 RX interrupt
 }

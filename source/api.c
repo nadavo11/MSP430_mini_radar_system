@@ -5,13 +5,26 @@
 #include "stdio.h"
 int fdfd=0;
 
+void UART_send(){
+    while (!(IFG2&UCA0TXIFG));                // USCI_A0 TX buffer ready?
+    IE2 |= UCA0TXIE;                       // Disable USCI_A0 TX interrupt
+    UCA0TXBUF = message[0];                      // TX -> RXed character
+    __bis_SR_register(LPM0_bits);
 
+}
+
+void sendFormatMessage( int a, int b, int c, int d) {
+    snprintf(message, 20, "%d|%d|%d|%d\n", a, b, c, d);
+    msc_cnt=1;
+    UART_send();
+}
 
 void sysConfig(){
     GPIOconfig();
     TimerA0_Config();
     TimerA1_Config();
     lcd_init();
+    DCO_config();
     UART_Config();
 
 }

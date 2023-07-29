@@ -4,8 +4,10 @@ unsigned int EndOfRecord = 0;
 unsigned volatile int temp[2],i=0,j=0,diff,msc_cnt=0;
 char message[50];
 char new_x[50];
+char c;
 int First_Time = 0x01;
 int count=0;
+
 void enterLPM(unsigned char LPM_level){
 	if (LPM_level == 0x00) 
 	  _BIS_SR(LPM0_bits);     /* Enter Low Power Mode 0 */
@@ -224,8 +226,8 @@ void __attribute__ ((interrupt(TIMER1_A1_VECTOR))) TIMER1_A1_ISR (void)
           
         break;
       case TA1IV_TACCR1:        
-//        TA1CCTL1 &= ~CCIFG;
-//        LPM0_EXIT;        
+        //TA1CCTL1 &= ~CCIFG;
+        LPM0_EXIT;
         break;             // Vector  4:  TACCR2 CCIFG
       case TA1IV_6: break;                  // Vector  6:  Reserved CCIFG
       case TA1IV_8: break;                  // Vector  8:  Reserved CCIFG
@@ -310,6 +312,14 @@ void __attribute__ ((interrupt(TIMER0_A0_VECTOR))) Timer_A (void)
 //
 //}
 
+/** _______________________________________________________________________________________________*
+ *                                                                                                 *
+ *                                      TX ISR                                                     *
+ *                                                                                                 *
+ *  -----------------------------------------------------------------------------------------------*
+ * handles the UART serial  communication module (USCI) Transmission interrupt                     *
+ *                                                                                                 *
+ *_________________________________________________________________________________________________*/
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector=USCIAB0TX_VECTOR
 __interrupt void USCI0TX_ISR(void)
@@ -319,13 +329,20 @@ void __attribute__ ((interrupt(USCIAB0TX_VECTOR))) USCI0TX_ISR (void)
 #error Compiler not supported!
 #endif
 {
-  UCA0TXBUF = message[msc_cnt++];                 // TX next character
-
-  if (msc_cnt == sizeof message - 1)              // TX over?
+  c = message[msc_cnt++];                 // TX next character
+  UCA0TXBUF = c;
+  if (c == '\n')              // TX over?
     IE2 &= ~UCA0TXIE;                       // Disable USCI_A0 TX interrupt
-
-
+    LPM0_EXIT;
 }
+/** _______________________________________________________________________________________________*
+ *                                                                                                 *
+ *                                      RX ISR                                                     *
+ *                                                                                                 *
+ *  -----------------------------------------------------------------------------------------------*
+ * handles the UART serial  communication module (USCI) Receiving  interrupt                       *
+ *                                                                                                 *
+ *_________________________________________________________________________________________________*/
 
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector=USCIAB0RX_VECTOR

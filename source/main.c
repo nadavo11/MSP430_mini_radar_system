@@ -31,14 +31,23 @@ void main(void){
 
         case state1: //PB0 recorder
             while(1){    //servo motor
-                a+=39;
+                a+=10;
                 if(a>180)
                   a=0;
 
                 set_angel(a);       // set CCR3
                 LDR_measurement(Results);
-                print_measurments(Results[0] ,Results[1]);
+
+                trigger_ultrasonic();
+                //TA1CTL &= ~CCIE;
+
+                _BIS_SR(LPM0_bits + GIE);
+
+                print_measurments(a ,Results[1]);
                 delay_us(Periode_60ms_val);
+
+                sendFormatMessage(a,Results[0] ,Results[1],diff);
+                DelayUs(100);
                 stop_PWM();
 
             }

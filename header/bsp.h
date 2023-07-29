@@ -53,7 +53,13 @@ extern void ADC_config1();
 extern void ADC_start();
 extern void ADC_stop();
 
+//uart abstraction
+#define TXLED                   BIT0
+#define RXLED                   BIT6
+#define TXD                     BIT2
+#define RXD                     BIT1
 
+extern void DCO_config();
 #endif
 
 
