@@ -129,13 +129,6 @@ void UART_Config() {
   IE2 |= UCA0RXIE;                          // Enable USCI_A0 RX interrupt
 }
 
-void delay2(){
-    volatile int f;
-    f=0;
-    f++;
-    f--;
-
-}
 
 void delay_us(unsigned int del){
     TACTL = TACLR;

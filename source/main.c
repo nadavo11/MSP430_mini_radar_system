@@ -19,7 +19,8 @@ void main(void){
     lpm_mode = mode0;     // start in idle state on RESET
     sysConfig();          // Configure GPIO, Stop Timers, Init LCD
     //_BIS_SR(CPUOFF);                          // Enter LPM0
-    int a = 510;
+    int a = 0;
+    int inc = 3;
 
     while(1){
 
@@ -31,9 +32,9 @@ void main(void){
 
         case state1: //PB0 recorder
             while(1){    //servo motor
-                a+=10;
-                if(a>180)
-                  a=0;
+                a+=inc;
+                if(a>179 -inc || a < -inc)
+                  inc*=-1;
 
                 set_angel(a);       // set CCR3
                 LDR_measurement(Results);
@@ -45,9 +46,14 @@ void main(void){
                 TA1CCTL2 &= ~CCIE;
                 print_measurments(a ,Results[1]);
                 delay_us(Periode_60ms_val);
+                TA1CCTL2 &= ~CCIE;
+                TA1CCTL1 &= ~CCIE;
+                TA1CCTL0 &= ~CCIE;
+                TA0CTL &= ~TAIE;
 
                 sendFormatMessage(a,Results[0] ,Results[1],diff);
-                DelayUs(100);
+                delay_us(1500);
+                //DelayUs(1600);
                 stop_PWM();
 
             }

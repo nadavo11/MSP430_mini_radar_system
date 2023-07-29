@@ -178,8 +178,9 @@ void lcd_print_voltage(int num) {
 
 void start_msg(){
   msc_cnt = 0;
-  IE2 |= UCA0TXIE;                        // Enable USCI_A0 TX interrupt 
   UCA0TXBUF = message[msc_cnt++];
+  IE2 |= UCA0TXIE;                        // Enable USCI_A0 TX interrupt
+
 }
 
 void start_PWM(){

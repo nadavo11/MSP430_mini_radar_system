@@ -14,7 +14,7 @@ void UART_send(){
 }
 
 void sendFormatMessage( int a, int b, int c, int d) {
-    snprintf(message, 30, "%d|%d|%d|%d\n", a, b, c, d);
+    snprintf(message, 30, "|%d|%d|%d|%d|\n", a, b, c, d);
     msc_cnt=0;
     UART_send();
 }
