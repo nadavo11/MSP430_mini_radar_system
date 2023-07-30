@@ -64,6 +64,9 @@ void TimerA1_Config(){
     TA1CCTL2 |= CAP | CCIE | CCIS_0 | CM_3 | SCS;                       // TACCR2 toggle/set
 
  
+    /**
+     * WHY SHULD THEY HAVE CCIE>? MAYBE WE GO TO IDLE, WOULD THEY SSTILL NEED IT?
+     * */
     TA1CTL |= TASSEL_2 | MC_1 | CCIE;          // counts to CCR0
 
 //    TA1CCTL2 = CAP + CM_3 + CCIE + SCS + CCIS_0;
@@ -83,8 +86,8 @@ void TimerA0_Config(){
 
     //  TB1_CONFIG
     TA0CCTL0 = CCIE;                       // TBCCR1 toggle/set
-    TACTL |= TASSEL_2 | MC_1 | CCIE;          // counts to CCR0
-
+    TACTL |= TASSEL_2 | MC_1 | CCIE;          // counts to CCR0 //WHY DOES IT NEED CCIE RIGHT NOW??
+    //TACTL |= TASSEL_2 | MC_1;
     _BIS_SR(GIE);                     // enable interrupts globally
 }
 /** _______________________________________________________________________________________________*
@@ -133,12 +136,15 @@ void UART_Config() {
 void delay_us(unsigned int del){
     TACTL = TACLR;
     TACTL |= TASSEL_2 | MC_1 | ID_0 | CCIE;                  // SMCLK, up-down mode
+
     TACCR0 = TAR+del;
-//    volatile int a=TACCR0, b=TAR;
-//    a++;
-//    b++;
+
+
     __bis_SR_register(LPM0_bits + GIE);
     TACTL &= ~CCIE;
+
+
+
   //  TBCCTL4 = OUTMOD_4 + CCIE;
 }
 void ADC_config0(){

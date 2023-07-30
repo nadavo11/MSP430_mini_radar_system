@@ -26,12 +26,14 @@ void main(void){
 
         switch(state){
         case state0: //idle - Sleep
+            lcd_reset();
+            _BIS_SR(LPM0_bits + GIE);
 
-     //       enterLPM(mode0);
         break;
 
         case state1: //PB0 recorder
-            while(1){    //servo motor
+            a = 0;
+            while(state == state1){    //servo motor
                 a+=inc;
                 if(a>179 -inc || a < -inc)
                   inc*=-1;
@@ -88,6 +90,29 @@ void main(void){
 
             }
         break;
+        case scriptmode:
+            while(state == scriptmode){
+                lcd_reset();
+                lcd_puts("script mode");
+
+                TA1CCTL2 &= ~CCIE;
+                TA1CCTL1 &= ~CCIE;
+                TA1CCTL0 &= ~CCIE;
+                //TACTL &= ~CCIE;
+
+                IE2 &= ~UCA0TXIE;                       // Disable USCI_A0 TX interrupt
+
+                _BIS_SR(LPM3_bits + GIE);                 // Enter LPM3 w/ interrupt
+                int i = 0;
+                while(script[i] != '\n'){
+                    lcd_reset();
+                    lcd_data(script[i++]);
+                    int d =160000;
+                    while(d--);
+
+                }
+
+            }
         }
 
     }

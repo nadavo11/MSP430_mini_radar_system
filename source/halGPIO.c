@@ -4,6 +4,7 @@ unsigned int EndOfRecord = 0;
 unsigned volatile int temp[2],i=0,j=0,diff,msc_cnt=0;
 char message[40];
 char new_x[50];
+char script[64];
 char c;
 int First_Time = 0x01;
 int count=0;
@@ -355,17 +356,27 @@ void __attribute__ ((interrupt(USCIAB0RX_VECTOR))) USCI0RX_ISR (void)
 #endif
 {
 //  IE2 &= ~UCA0RXIE;
-  if(state==state4){
-    new_x[j++] = UCA0RXBUF;
-    if (j==4){
-        j = 0;
+  if(state==scriptmode){
+    c = UCA0RXBUF;
+    if(c == 'r')
         state = state0;
- //       IE2 |= UCA0RXIE;
-        LPM0_EXIT;
+    else{
+        script[j++] = c;
+        if (j== 64 || c == '\n'){
+            j = 0;
+            //state = state0;
+            //IE2 |= UCA0RXIE;
+            LPM0_EXIT;
+
+        }
         
     }
-  }else if      (UCA0RXBUF == '1')                     // '1' received?
-        {state = state1; }      // Set state1
+
+  }     else if  (UCA0RXBUF == '0')                     // '0' received?
+        {state = state0; }      // Set state1
+
+         else if (UCA0RXBUF == '1')                // '1' received?
+        {state = state1; }      // Set state2
 
         else if (UCA0RXBUF == '2')                // '2' received?
         {state = state2; }      // Set state2
@@ -387,8 +398,10 @@ void __attribute__ ((interrupt(USCIAB0RX_VECTOR))) USCI0RX_ISR (void)
         else if (UCA0RXBUF == '6')                // '6' received?
         {state = state6; }
             // Set state6
-        else if (UCA0RXBUF == '7')                // '7' received?
-        {state = state7; }                         // Set state7
+        else if (UCA0RXBUF == 's'){                 // 's' received?
+            state = scriptmode;
+        }
+
 
         else if (UCA0RXBUF == '8')                // '8' received?
         {state = state0; }                         // Set state0
