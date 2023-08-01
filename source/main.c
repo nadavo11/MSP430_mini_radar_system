@@ -15,7 +15,7 @@ unsigned int Index,g=0;
 void main(void){
     P2OUT = 0x00;
 
-    state = state1;       // start in idle state on RESET
+    state = state0;       // start in idle state on RESET
     lpm_mode = mode0;     // start in idle state on RESET
     sysConfig();          // Configure GPIO, Stop Timers, Init LCD
     //_BIS_SR(CPUOFF);                          // Enter LPM0
@@ -38,14 +38,11 @@ void main(void){
                 if(a>179 -inc || a < -inc)
                   inc*=-1;
 
+
                 set_angel(a);       // set CCR3
                 LDR_measurement(Results);
-                TA1CCTL2 |=CCIE;
                 trigger_ultrasonic();
 
-
-                _BIS_SR(LPM0_bits + GIE);
-                TA1CCTL2 &= ~CCIE;
                 print_measurments(a ,Results[1]);
                 delay_us(Periode_60ms_val);
                 TA1CCTL2 &= ~CCIE;

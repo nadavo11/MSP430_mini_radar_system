@@ -54,15 +54,15 @@ void GPIOconfig(void){
 void TimerA1_Config(){
     WDTCTL = WDTPW +WDTHOLD;                  // Stop WDT
     //  TB0_CONFIG
-    TA1CCR0 = MAX_TBR-2;                             // 60 ms Period/2
+    TA1CCR0 = MAX_TBR-3;                             // 60 ms Period/2
 
     //  TB1_CONFIG
     TA1CCTL1 |= OUTMOD_6 ;                       // TBCCR1 toggle/set
-    TA1CCR1 = 1000;                              // TACCR1 PWM duty cycle
+    TA1CCR1 = MAX_TBR-2;                              // TACCR1 PWM duty cycle
     
     //  TB2_CONFIG
-    TA1CCTL2 |= CAP | CCIE | CCIS_0 | CM_3 | SCS;                       // TACCR2 toggle/set
-
+    TA1CCTL2 |= CAP | CCIS_0 | CM_3 | SCS;                       // TACCR2 toggle/set
+    /// removed ccie
  
     /**
      * WHY SHULD THEY HAVE CCIE>? MAYBE WE GO TO IDLE, WOULD THEY SSTILL NEED IT?
@@ -85,7 +85,6 @@ void TimerA0_Config(){
     TA0CCR0 = MAX_TBR-2;                             // 60 ms Period/2
 
     //  TB1_CONFIG
-    TA0CCTL0 = CCIE;                       // TBCCR1 toggle/set
     TACTL |= TASSEL_2 | MC_1 | CCIE;          // counts to CCR0 //WHY DOES IT NEED CCIE RIGHT NOW??
     //TACTL |= TASSEL_2 | MC_1;
     _BIS_SR(GIE);                     // enable interrupts globally
@@ -135,8 +134,9 @@ void UART_Config() {
 
 void delay_us(unsigned int del){
     TACTL = TACLR;
-    TACTL |= TASSEL_2 | MC_1 | ID_0 | CCIE;                  // SMCLK, up-down mode
+    TACTL |= TASSEL_2 | MC_1 | ID_0;                        // SMCLK, up-down mode
 
+    TA0CCTL0 = CCIE;                                        // TACCR0 interrupt enabled
     TACCR0 = TAR+del;
 
 

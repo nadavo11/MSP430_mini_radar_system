@@ -293,8 +293,6 @@ void __attribute__ ((interrupt(TIMER0_A0_VECTOR))) Timer_A (void)
 #endif
 {
   LPM0_EXIT;
-
-  
 }
 
 
@@ -428,32 +426,6 @@ void __attribute__ ((interrupt(USCIAB0RX_VECTOR))) USCI0RX_ISR (void)
 }
 
 
-//    switch(lpm_mode){
-//        case mode0:
-//            LPM0_EXIT; // must be called from ISR only
-//            break;
-//
-//        case mode1:
-//            LPM1_EXIT; // must be called from ISR only
-//            break;
-//
-//        case mode2:
-//            LPM2_EXIT; // must be called from ISR only
-//            break;
-//
-//        case mode3:
-//            LPM3_EXIT; // must be called from ISR only
-//            break;
-//
-//        case mode4:
-//            LPM4_EXIT; // must be called from ISR only
-//            break;
-//        }
-
-          //TBCTL &= ~TBIFG; // Clear the interrupt flag
-          //TBCTL = TBCLR;
-
-
 // ADC10 interrupt service routine
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector=ADC10_VECTOR
@@ -464,72 +436,5 @@ void __attribute__ ((interrupt(ADC10_VECTOR))) ADC10_ISR (void)
 #error Compiler not supported!
 #endif
 {
- // __bic_SR_register_on_exit(CPUOFF);        // Clear CPUOFF bit from 0(SR)
- // ADC10CTL0 &= ~ADC10IFG;
-//    ADC10CTL0=0x00;
-//    ADC10AE0=0x00;
-   // LPM0_EXIT;
     __bic_SR_register_on_exit(CPUOFF);
 }
-
-//  #pragma vector = DMA_VECTOR
-//  __interrupt void DMA_ISR (void){
-//      LPM0_EXIT;
-//      _BIC_SR(DMAIV);
-//  }
-
-
-//
-//#pragma vector=PORT1_VECTOR  // For Push Buttons
-//  __interrupt void PBs_handler(void){
-//      DelayUs(debounceVal);
-//
-//	if(PBsArrIntPend & PB0){
-//	    lcd_clear();
-//	    state = state1;
-//	    PBsArrIntPend &= ~PB0;
-//	}
-//    else if(PBsArrIntPend & PB1){
-//        lcd_clear();
-//        state = state2;
-//        lcd_home();
-//	    PBsArrIntPend &= ~PB1;
-//    }
-//    else if(PBsArrIntPend & PB2){
-//        lcd_clear();
-//        state = state3;
-//	    PBsArrIntPend &= ~PB2;
-//
-//    }
-//
-//    else if(PBsArrIntPend & PB3){
-//
-//           state = state4;
-//           PBsArrIntPend &= ~PB3;
-//       }
-//    else PBsArrIntPend &= 0x0F;
-//
-//        switch(lpm_mode){
-//		case mode0:
-//		 LPM0_EXIT;
-//		 break;
-//
-//		case mode1:
-//		 LPM1_EXIT;
-//		 break;
-//
-//		case mode2:
-//		 LPM2_EXIT;
-//		 break;
-//
-//        case mode3:
-//		 LPM3_EXIT;
-//		 break;
-//
-//        case mode4:
-//		 LPM4_EXIT;
-//		 break;
-//	}
-//
-//}
-//

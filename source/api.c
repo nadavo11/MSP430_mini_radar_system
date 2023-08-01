@@ -14,6 +14,7 @@ void UART_send(){
 }
 
 void sendFormatMessage( int a, int b, int c, int d) {
+    // the format is |phi|ldr1|ldr2|us|\n
     snprintf(message, 30, "|%d|%d|%d|%d|\n", a, b, c, d);
     msc_cnt=0;
     UART_send();
@@ -83,12 +84,16 @@ void LDR_measurement(unsigned volatile int arr[]){
 
 void trigger_ultrasonic(){
     delay_us(del60ms);
+    TA1CCTL2 |=CCIE;
+
     delay_us(20);
     Trigger_OUT |= 0x08;
     delay_us(20);
     Trigger_OUT &= ~0x08;
-    //long_delay();
 
+    _BIS_SR(LPM0_bits + GIE);
+    // remove interrupt enable
+    TA1CCTL2 &= ~CCIE;
 }
 
 void print_measurments(unsigned int LLDR , unsigned int RLDR){
