@@ -1,6 +1,8 @@
+import re
 import sys
 from queue import Queue
 PORT = 'COM13'
+MODE = 0
 TH = 10
 MAX_DIST = 12000
 from PyQt5 import QtGui, QtCore
@@ -71,8 +73,8 @@ class MainWindow(QMainWindow):
         sm.set_array([])  # Set an empty array for now
 
         self.object_data = np.zeros(180) +60
-        self.light_data1 = np.zeros(180) + 1024
-        self.light_data2 = np.zeros(180) + 1024
+        self.light_data1 = np.zeros(180)
+        self.light_data2 = np.zeros(180)
         self.light = np.zeros(180)
         self.previous_l = 0
 
@@ -82,6 +84,12 @@ class MainWindow(QMainWindow):
 
 
         # Create a button to send data to Arduino
+        # red stop button
+
+        self.button_stop = QPushButton("stop", self)
+        self.button_stop.setStyleSheet("font: bold 16px; color: red; background-color: hsl(20, 20%, 5%);")
+        self.button_stop.pressed.connect(self.stop)
+
         self.button1 = QPushButton("Ultra Sonc Scan", self)
         self.button1.pressed.connect(self.scan_obj)
 
@@ -112,6 +120,8 @@ class MainWindow(QMainWindow):
 
         main_layout.addWidget(self.button_mode_toggle)
 
+        main_layout.addWidget(self.button_stop)
+
         """
         ______________________________________________
         
@@ -129,13 +139,18 @@ class MainWindow(QMainWindow):
         self.button_compile.pressed.connect(self.compile)
         self.button_compile.hide()
 
-        self.button_load = QPushButton("Load Script🔥🔥", self)
+        self.button_load = QPushButton("⬇️Load Script⬇️", self)
         self.button_load.pressed.connect(self.load_script)
         self.button_load.hide()
+
+        self.button_burn = QPushButton("🔥burn Script🔥", self)
+        self.button_burn.pressed.connect(self.burn_script)
+        self.button_burn.hide()
 
         main_layout.addWidget(self.text_box)
         main_layout.addWidget(self.button_compile)
         main_layout.addWidget(self.button_load)
+        main_layout.addWidget(self.button_burn)
 
 
         # Flag to track the current mode (True for radar mode, False for script mode)
@@ -167,13 +182,13 @@ class MainWindow(QMainWindow):
             l2 = int(line[2])
             r = int(line[3])
             self.object_data[phi : phi+3] = min(abs(r), MAX_DIST)
-            self.light_data1[phi] = l1
-            self.light_data2[phi] = l2
+            self.light_data1[phi] = 1023 - l1
+            self.light_data2[phi] = 1023 - l2
 
-            argmin = (np.argmin(self.light_data1) + np.argmin(self.light_data2))//2
-            print(argmin)
+            argmax = (np.argmax(self.light_data1) + np.argmax(self.light_data2))//2
+            print(argmax)
             self.light[phi : phi+3] = 0
-            self.light[argmin] = 6000
+            self.light[argmax] = (np.max(self.light_data1) + np.max(self.light_data2))
 
 
 
@@ -214,7 +229,8 @@ class MainWindow(QMainWindow):
 
         # plot one light on the argmax of the light data
         #self.ax.scatter(np.deg2rad(np.argmax(self.light)), self.light[np.argmax(self.light)], c="yellow", s=1000, alpha=0.5, linestyle='')
-        self.ax.scatter(np.deg2rad(np.where(self.light >0)), self.light[np.where(self.light >0)], c="yellow", s=1000,
+
+        self.ax.scatter(np.deg2rad(np.where(self.light >0)), self.light[np.where(self.light >0)]+7000, c="yellow", s=self.light[np.where(self.light >0)],
                         alpha=0.5, linestyle='')
 
 
@@ -237,8 +253,8 @@ class MainWindow(QMainWindow):
         print(data)
         self.serial.write(data)
 
-    def sayHi(self):
-        print("hi")
+    def stop(self):
+        self.write_data('0')
     def scan_obj(self):
         # Write '1' to Arduino
         state = 0
@@ -251,7 +267,9 @@ class MainWindow(QMainWindow):
         self.write_data('3')
     def toggle_mode(self):
         self.radar_mode = not self.radar_mode
+
         if self.radar_mode:
+            self.write_data('r')
             # Show radar mode
 
             self.text_box.hide()
@@ -261,7 +279,9 @@ class MainWindow(QMainWindow):
 
             self.button_compile.hide()
             self.button_load.hide()
+            self.button_burn.hide()
         else:
+            self.write_data('s')
             # Show script mode
 
             self.text_box.show()
@@ -270,11 +290,14 @@ class MainWindow(QMainWindow):
             self.text_box.clear()
             self.button_compile.show()
             self.button_load.show()
+            self.button_burn.show()
 
     #def load_txt(self):
 
 
     def load_script(self):
+        # UART send script mode
+        self.write_data('s')
         # Open a file dialog to choose a .txt file
         file_dialog = QFileDialog(self)
         file_dialog.setNameFilter("Text Files (*.txt)")
@@ -285,6 +308,7 @@ class MainWindow(QMainWindow):
                 self.text_box.setPlainText(script_content)
     def compile(self):
         txt = self.text_box.toPlainText()
+        txt = re.sub(r'\d+', lambda match: str(format(int(match.group()),'02x')), txt)
         txt = txt.replace("inc_lcd ", "01")
         txt = txt.replace("dec_lcd ", "02")
         txt = txt.replace("rra_lcd ", "03")
@@ -294,11 +318,17 @@ class MainWindow(QMainWindow):
         txt = txt.replace("servo_scan ", "07")
         txt = txt.replace("sleep", "08")
         txt = txt.replace(",", "")
+
+
         print(txt)
         self.text_box.setPlainText(txt)
 
         # Write '1' to Arduino
         self.write_data('3')
+
+    def burn_script(self):
+        txt = self.text_box.toPlainText().replace("\n", "")
+        self.write_data(txt + '\n')
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
