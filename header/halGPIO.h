@@ -6,7 +6,7 @@
 #include  "../header/app.h"    		// private library - APP layer
 
 extern unsigned volatile int diff;
-
+extern int seg;
 extern enum FSMstate state;   // global variable
 extern enum SYSmode lpm_mode; // global variable
 
@@ -16,6 +16,8 @@ extern void enable_interrupts();
 extern void disable_interrupts();
 extern char message[40];
 extern char script[64];
+extern int segments[3];
+extern void wait(int t);
 extern unsigned volatile int msc_cnt;
 //extern void write_freq_tmp_LCD();
 //extern void write_signal_shape_tmp_LCD();

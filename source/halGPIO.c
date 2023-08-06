@@ -8,6 +8,9 @@ char script[64];
 char c;
 int First_Time = 0x01;
 int count=0;
+int seg=0;
+int segments[3]={0X1000,0X1040,0X1080};
+
 
 void enterLPM(unsigned char LPM_level){
 	if (LPM_level == 0x00) 
@@ -114,6 +117,14 @@ void DelayMs(unsigned int cnt){
 
 }
 
+void wait(int t){
+    int i;
+    for( i=0;i<t;i++){
+        delay_us(10485);
+    }
+
+}
+
 void lcd_init(){
 
     char init_value;
@@ -177,6 +188,20 @@ void lcd_print_voltage(int num) {
     lcd_data((char)ones);
 }
 
+void lcd_print_num(int num) {
+    // Extract the tens and ones digits
+    int tens = num / 10 + 0x30;
+    int ones = num % 10 + 0x30;
+
+    // Display the tens digit
+
+    lcd_data((char)tens);
+
+
+    // Display the ones digit
+    lcd_data((char)ones);
+}
+
 void start_msg(){
   msc_cnt = 0;
   UCA0TXBUF = message[msc_cnt++];
@@ -215,56 +240,6 @@ void __attribute__ ((interrupt(TIMER1_A1_VECTOR))) TIMER1_A1_ISR (void)
          // TA1CCTL1 &= ~CCIFG;
           
           if (i==2) {
-              if(temp[0] < temp[1]){
-                  diff = temp[1] - temp[0];
-              }
-              else{
-                  //max value of TBR is 131071, in hex 0xFFFF
-                  diff = 0xFFFF - temp[0] + temp[1];
-              }
-              i=0;
-              LPM0_EXIT;
-          }
-          
-        break;
-      case TA1IV_TACCR1:        
-        //TA1CCTL1 &= ~CCIFG;
-        LPM0_EXIT;
-        break;             // Vector  4:  TACCR2 CCIFG
-      case TA1IV_6: break;                  // Vector  6:  Reserved CCIFG
-      case TA1IV_8: break;                  // Vector  8:  Reserved CCIFG
-      case TA1IV_TAIFG: break;              // Vector 10:  TAIFG
-      default: 	break;
-  }
-}
-//  #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
-//  #pragma vector = TIMER1_A1_VECTOR
-//  __interrupt void Timer_A1 (void)
-//  #elif defined(__GNUC__)
-//  void __attribute__ ((interrupt(TIMER1_A1_VECTOR))) Timer_A1 (void)
-//  #else
-//  #error Compiler not supported!
-//  #endif
-//  {
-//    switch(__even_in_range(TA1IV,0x0A)){
-//        case TA1IV_NONE:
-//            break;
-//        /****** capture ISR *****
-//         *
-//         *      TB2 acts in capture
-//         * *********************/
-//        case TA1IV_TACCR1:           //CAPTURE ISR  
-//          TA1CCTL1 &= ~CCIFG;
-//          LPM0_EXIT;
-//          
-//            break;
-//          
-//        case TA1IV_TACCR2:           //CAPTURE ISR        
-//              temp[i] = TA1CCR2;
-//              i += 1;
-//             // TA1CCTL1 &= ~CCIFG;
-//          
-//          if (i==2) {
 //              if(temp[0] < temp[1]){
 //                  diff = temp[1] - temp[0];
 //              }
@@ -272,15 +247,22 @@ void __attribute__ ((interrupt(TIMER1_A1_VECTOR))) TIMER1_A1_ISR (void)
 //                  //max value of TBR is 131071, in hex 0xFFFF
 //                  diff = 0xFFFF - temp[0] + temp[1];
 //              }
-//              i=0;
-//              LPM0_EXIT;
-//          }
-//          break;
-//        
-//
-//        }
-//  }
-
+              diff = temp[1] - temp[0];
+              i=0;
+              LPM0_EXIT;
+          }
+          
+        break;
+      case TA1IV_TACCR1:        
+        //TA1CCTL1 &= ~CCIFG;
+        //LPM0_EXIT;
+        break;             // Vector  4:  TACCR2 CCIFG
+      case TA1IV_6: break;                  // Vector  6:  Reserved CCIFG
+      case TA1IV_8: break;                  // Vector  8:  Reserved CCIFG
+      case TA1IV_TAIFG: break;              // Vector 10:  TAIFG
+      default: 	break;
+  }
+}
 
 // Timer A0 interrupt service routine
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
@@ -292,25 +274,9 @@ void __attribute__ ((interrupt(TIMER0_A0_VECTOR))) Timer_A (void)
 #error Compiler not supported!
 #endif
 {
+  TA0CCTL0 &= ~TAIFG;
   LPM0_EXIT;
 }
-
-
-
-//#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
-//#pragma vector = TIMER0_A1_VECTOR
-//__interrupt void Timer_A01 (void)
-//#elif defined(__GNUC__)
-//void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) Timer_A01 (void)
-//#else
-//#error Compiler not supported!
-//#endif
-//{
-//  TA0CCTL0 &= ~CCIE;           
-//
-//  LPM0_EXIT;
-//
-//}
 
 /** _______________________________________________________________________________________________*
  *                                                                                                 *
@@ -358,6 +324,14 @@ void __attribute__ ((interrupt(USCIAB0RX_VECTOR))) USCI0RX_ISR (void)
     c = UCA0RXBUF;
     if(c == 'r')
         state = state0;
+    else if (c == '%')
+        LPM0_EXIT;
+    else if (c == '!')
+        seg = 0;
+    else if (c == '@')
+        seg = 1;
+    else if (c == '#')
+        seg = 2;
     else{
         script[j++] = c;
         if (j== 64 || c == '\n'){
@@ -367,7 +341,8 @@ void __attribute__ ((interrupt(USCIAB0RX_VECTOR))) USCI0RX_ISR (void)
             LPM0_EXIT;
 
         }
-        
+
+
     }
 
   }     else if  (UCA0RXBUF == '0')                     // '0' received?
@@ -398,13 +373,14 @@ void __attribute__ ((interrupt(USCIAB0RX_VECTOR))) USCI0RX_ISR (void)
             // Set state6
         else if (UCA0RXBUF == 's'){                 // 's' received?
             state = scriptmode;
+            __bic_SR_register_on_exit(CPUOFF);
         }
 
 
         else if (UCA0RXBUF == '8')                // '8' received?
         {state = state0; }                         // Set state0
  // IE2 |= UCA0RXIE;
-  if (state!=state4){
+  if (state!=scriptmode){
     switch(lpm_mode){
         case mode0:
             LPM0_EXIT; // must be called from ISR only
