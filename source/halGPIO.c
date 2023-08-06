@@ -10,8 +10,9 @@ int First_Time = 0x01;
 int count=0;
 int seg=0;
 int segments[3]={0X1000,0X1040,0X1080};
-
-
+int anga=0;
+int tt=0;
+char telemeter[2];
 void enterLPM(unsigned char LPM_level){
 	if (LPM_level == 0x00) 
 	  _BIS_SR(LPM0_bits);     /* Enter Low Power Mode 0 */
@@ -347,7 +348,28 @@ void __attribute__ ((interrupt(USCIAB0RX_VECTOR))) USCI0RX_ISR (void)
 
     }
 
-  }     else if  (UCA0RXBUF == '0')                     // '0' received?
+  }
+//  if (state==state2){
+//        c = UCA0RXBUF;
+//        if(c=='a'){
+//            state==state0;
+//            __bic_SR_register_on_exit(CPUOFF);
+//        }
+//        else {
+//            telemeter[tt++] = c;
+//            __bic_SR_register_on_exit(CPUOFF);
+//
+//            if (tt == 2 || c == '\n') {
+//                tt = 0;
+//                //state = state0;
+//                //IE2 |= UCA0RXIE;
+//
+//
+//            }
+//        }
+//
+//  }
+  else if  (UCA0RXBUF == '0')                     // '0' received?
         {state = state0; }      // Set state1
 
          else if (UCA0RXBUF == '1')                // '1' received?
@@ -360,7 +382,7 @@ void __attribute__ ((interrupt(USCIAB0RX_VECTOR))) USCI0RX_ISR (void)
         { state = state3; }   // Set state3
 
         else if(UCA0RXBUF == '4'){
-            state=state4;
+           // state=state4;
 
             IE2 |= UCA0TXIE;
             UCA0TXBUF ='4';

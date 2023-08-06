@@ -13,7 +13,7 @@
 #define PBsArrayPortDir   		P1DIR 
 
 
-
+extern int anga;
 extern void InitGPIO(void);
 
 #endif

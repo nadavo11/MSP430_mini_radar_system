@@ -16,7 +16,7 @@ char value[64];
 int data1=0,data2=0,data3=0,data4;
 
 int y=0;
-
+int gfg;
 int z=0;
 //segB[]="0X1040",segC[]="0X1080";
 
@@ -41,13 +41,20 @@ void main(void){
 
         case state1: //PB0 recorder
             TimerA0_Config();
-
             a = 0;
+            set_angel(a);
+            for(z=0; z<20; z++){
+              delay_us(Periode_60ms_val);
+            }
+
             while(state == state1){    //servo motor
                 a+=inc;
                 if(a>179 -inc || a < -inc){
                   inc*=-1;
                   a+=4*inc;
+                }
+                if(a>150 -inc || a < 30){
+                  a+=2*inc;
                 }
 
 
@@ -83,7 +90,7 @@ void main(void){
             }
         break;
 
-        case state2: //sonic
+        case state4: //sonic
             while(1){
                trigger_ultrasonic();
                 _BIS_SR(LPM0_bits + GIE);
@@ -104,9 +111,15 @@ void main(void){
                 print_measurments(Results[0] ,Results[1]);
             }
         break;
-        case state4:
+        case state2:
+
             while(1){
-                send_msg();
+                TA1CCTL2 &= ~CCIE;
+                                  TA1CCTL1 &= ~CCIE;
+                                  TA1CCTL0 &= ~CCIE;
+                                  TA0CTL &= ~TAIE;
+                gfg = hexChar2ToInt(telemeter);
+                servo_scan(gfg, gfg+1);
 
                 _BIS_SR(LPM3_bits + GIE);                 // Enter LPM3 w/ interrupt
 

@@ -6,7 +6,7 @@
 int fdfd=0;
 int t=50;
 char temp1[64];
-
+int iii=0;
 void UART_send(){
     //while (!(IFG2&UCA0TXIFG));                // USCI_A0 TX buffer ready?
     IE2 |= UCA0TXIE;                       // Disable USCI_A0 TX interrupt
@@ -163,7 +163,7 @@ void flash_config(){
   value[0] = '\0';                                // initialize value
 
 }
-
+\
 void write_SegC (char* value, int seg){
   char *Flash_ptr;                          // Flash pointer
   unsigned int i;
@@ -257,7 +257,10 @@ void servo_scan(int la, int ra){
 
     lcd_reset();
     lcd_putrow("Servo Scan");
-
+    TA1CCTL2 &= ~CCIE;
+              TA1CCTL1 &= ~CCIE;
+              TA1CCTL0 &= ~CCIE;
+              TA0CTL &= ~TAIE;
     int y;
     int ang=la, incr=3;
     set_angel(ang);       // set CCR3
@@ -266,10 +269,13 @@ void servo_scan(int la, int ra){
     }
     while(ang<ra){
         ang+=incr;
-
+        if(ang>3*(la-ra)/4||ang<(la-ra)/4)
+            ang+=incr;
 
         set_angel(ang);       // set CCR3
-        delay_us(Periode_60ms_val);
+        for(iii=0; iii<4; iii++){
+            delay_us(Periode_60ms_val);
+        }
 
 
         trigger_ultrasonic();
@@ -285,6 +291,8 @@ void servo_scan(int la, int ra){
         for(y=0; y<25; y++){
             delay_us(Periode_60ms_val);
         }
+        //sendFormatMessage(diff,diff ,diff,diff);
+
 
         stop_PWM();
 
