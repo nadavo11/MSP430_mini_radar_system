@@ -4,9 +4,10 @@ from queue import Queue
 PORT = 'COM13'
 MODE = 0
 TH = 10
-MAX_DIST = 12000
+MAX_DIST = 1000
 from PyQt5 import QtGui, QtCore
-from PyQt5.QtWidgets import QPushButton, QApplication, QMainWindow, QVBoxLayout, QWidget, QFileDialog, QTextEdit
+from PyQt5.QtWidgets import QPushButton, QApplication, QMainWindow, QVBoxLayout, QWidget, QFileDialog, QTextEdit, \
+    QHBoxLayout, QSlider, QLabel
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import numpy as np
@@ -17,7 +18,7 @@ import sys, time, serial
 
 import time
 plt.style.use('dark_background')
-from PyQt5.QtCore import QIODevice, QByteArray
+from PyQt5.QtCore import QIODevice, QByteArray, Qt
 from PyQt5.QtSerialPort import QSerialPort
 
 def detect_lights(l0,l1,direction):
@@ -43,6 +44,8 @@ def detect_lights(l0,l1,direction):
 class MainWindow(QMainWindow):
 
     def __init__(self):
+
+
         super().__init__()
         self.setWindowTitle("Radar Monitor")
         self.setGeometry(200, 200, 1400, 1200)
@@ -51,7 +54,7 @@ class MainWindow(QMainWindow):
         main_layout = QVBoxLayout(main_widget)
         main_widget.setLayout(main_layout)
         self.setCentralWidget(main_widget)
-
+        self.STATE_FLAG = 0
         # Create the matplotlib figure and canvas
         self.fig = plt.figure(figsize=(8, 8))
         self.ax = self.fig.add_subplot(111, polar=True)
@@ -99,8 +102,13 @@ class MainWindow(QMainWindow):
         self.button3 = QPushButton("Integrated scan", self)
         self.button3.pressed.connect(self.scan_both)
 
+        self.button4 = QPushButton("Telemeter", self)
+        self.button4.pressed.connect(self.telemeter)
+
         self.button_mode_toggle = QPushButton("Script Mode", self)
         self.button_mode_toggle.pressed.connect(self.toggle_mode)
+
+
 
 
         # Initialize the Arduino communication
@@ -117,6 +125,19 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.button2)
 
         main_layout.addWidget(self.button3)
+
+        main_layout.addWidget(self.button4)
+
+        # Create the label for the slider value
+        self.slider_label = QLabel()
+        main_layout.addWidget(self.slider_label)
+
+        # Create the slider
+        self.slider = QSlider(Qt.Horizontal)
+        self.slider.setMinimum(0)
+        self.slider.setMaximum(180)
+        self.slider.setValue(90)
+        self.slider.sliderReleased.connect(self.slider_value_changed)
 
         main_layout.addWidget(self.button_mode_toggle)
 
@@ -147,14 +168,39 @@ class MainWindow(QMainWindow):
         self.button_burn.pressed.connect(self.burn_script)
         self.button_burn.hide()
 
+        # Create the buttons and add them to the button layout
+        self.button_1 = QPushButton('1')
+        self.button_1.pressed.connect(self.script_ptr_1)
+
+        self.button_2 = QPushButton('2')
+        self.button_2.pressed.connect(self.script_ptr_2)
+
+        self.button_3 = QPushButton('3')
+        self.button_3.pressed.connect(self.script_ptr_3)
+
+
         main_layout.addWidget(self.text_box)
         main_layout.addWidget(self.button_compile)
         main_layout.addWidget(self.button_load)
         main_layout.addWidget(self.button_burn)
 
+        # Assuming 'main_layout' is your existing layout
+        button_layout = QHBoxLayout()  # Create a horizontal layout for the buttons
+
+        button_layout.addWidget(self.button_1)
+        button_layout.addWidget(self.button_2)
+        button_layout.addWidget(self.button_3)
+
+        # Add the button layout to the main layout
+        main_layout.addLayout(button_layout)
+
+        main_layout.addWidget(self.slider)
+        self.slider_label.setText(f"servo angle: ")
 
         # Flag to track the current mode (True for radar mode, False for script mode)
         self.radar_mode = True
+
+
     @QtCore.pyqtSlot()
 
     def read_data(self):
@@ -178,17 +224,22 @@ class MainWindow(QMainWindow):
 
         if len(line) == 5 and not line[-1] and line[0] and line[1] and line[2] and line[3]:
             phi = int(line[0])
-            l1 = int(line[1])
-            l2 = int(line[2])
+            l1 = 1023 - int(line[1])+80
+            l2 = 1023 - int(line[2])
             r = int(line[3])
             self.object_data[phi : phi+3] = min(abs(r), MAX_DIST)
-            self.light_data1[phi] = 1023 - l1
-            self.light_data2[phi] = 1023 - l2
+            self.light_data1[phi] = l1
+            self.light_data2[phi] = l2
 
-            argmax = (np.argmax(self.light_data1) + np.argmax(self.light_data2))//2
-            print(argmax)
-            self.light[phi : phi+3] = 0
-            self.light[argmax] = (np.max(self.light_data1) + np.max(self.light_data2))
+            if l1 > 50 and l2>50 and abs(l1-l2) < 60:
+                self.light[phi] = (l1 + l2)//2
+            else:
+                self.light[phi : phi+3] = 0
+            #
+            # argmax = (np.argmax(self.light_data1) + np.argmax(self.light_data2))//2
+            # print(argmax)
+
+            # self.light[argmax] = (np.max(self.light_data1) + np.max(self.light_data2))
 
 
 
@@ -196,7 +247,6 @@ class MainWindow(QMainWindow):
         self.update_radar(self.object_data)
     @QtCore.pyqtSlot()
     def update_radar(self, object_data):
-
         # Clear the current plot
         self.ax.clear()
 
@@ -217,21 +267,21 @@ class MainWindow(QMainWindow):
         # Calculate the intensities of the detected objects
         intensities = object_data[object_indices]
 
-        # Plot markers for the detected objects
-        self.ax.scatter(np.deg2rad(object_indices), intensities, c=intensities, cmap=plt.cm.jet, alpha=0.5, linestyle='')
-        # Fill the area inside the radar plot
-        self.ax.fill(theta, object_data, alpha=0.25)
+        if self.STATE_FLAG == 1 or self.STATE_FLAG == 4:
+            # Plot markers for the detected objects
+            self.ax.scatter(np.deg2rad(object_indices), intensities, c=intensities, cmap=plt.cm.jet, alpha=0.5, linestyle='')
+            # Fill the area inside the radar plot
+            self.ax.fill(theta, object_data, alpha=0.25)
         """
        #############################
        #   lights plot            #
        #############################
        """
+        if self.STATE_FLAG == 3 or self.STATE_FLAG == 4:
+            # plot one light on the argmax of the light data
 
-        # plot one light on the argmax of the light data
-        #self.ax.scatter(np.deg2rad(np.argmax(self.light)), self.light[np.argmax(self.light)], c="yellow", s=1000, alpha=0.5, linestyle='')
-
-        self.ax.scatter(np.deg2rad(np.where(self.light >0)), self.light[np.where(self.light >0)]+7000, c="yellow", s=self.light[np.where(self.light >0)],
-                        alpha=0.5, linestyle='')
+            self.ax.scatter(np.deg2rad(np.where(self.light >0)), self.light[np.where(self.light >0)]+70, c="yellow", s=self.light[np.where(self.light >0)],
+                            alpha=0.5, linestyle='')
 
 
         #self.ax.scatter(np.deg2rad(object_indices), intensities + 10, s=0, c="yellow", alpha=0.5, linestyle='')
@@ -259,12 +309,17 @@ class MainWindow(QMainWindow):
         # Write '1' to Arduino
         state = 0
         self.write_data('1')
+        self.STATE_FLAG = 1
+
     def scan_light(self):
         # Write '1' to Arduino
-        self.write_data('2')
+        self.write_data('1')
+        self.STATE_FLAG = 3
+
     def scan_both(self):
         # Write '1' to Arduino
-        self.write_data('3')
+        self.write_data('1')
+        self.STATE_FLAG = 4
     def toggle_mode(self):
         self.radar_mode = not self.radar_mode
 
@@ -280,6 +335,11 @@ class MainWindow(QMainWindow):
             self.button_compile.hide()
             self.button_load.hide()
             self.button_burn.hide()
+
+            self.button_1.hide()
+            self.button_2.hide()
+            self.button_3.hide()
+
         else:
             self.write_data('s')
             # Show script mode
@@ -291,6 +351,10 @@ class MainWindow(QMainWindow):
             self.button_compile.show()
             self.button_load.show()
             self.button_burn.show()
+            self.button_1.show()
+            self.button_2.show()
+            self.button_3.show()
+
 
     #def load_txt(self):
 
@@ -323,15 +387,35 @@ class MainWindow(QMainWindow):
         print(txt)
         self.text_box.setPlainText(txt)
 
-        # Write '1' to Arduino
-        self.write_data('3')
 
     def burn_script(self):
         txt = self.text_box.toPlainText().replace("\n", "")
         self.write_data(txt + '\n')
+
+    def script_ptr_1(self):
+        self.write_data('!')
+    def script_ptr_2(self):
+        self.write_data('@')
+    def script_ptr_3(self):
+        self.write_data('#')
+
+    def telemeter(self):
+        if self.STATE_FLAG == 2:
+            self.write_data('a')
+            self.STATE_FLAG = 0
+        else:
+            self.write_data('2')
+            self.STATE_FLAG = 2
+
+    def slider_value_changed(self):
+        if self.STATE_FLAG ==2:
+            print(str(self.slider.value()))
+            self.write_data( str(self.slider.value()//2) + '\n')
+            self.slider_label.setText(f"Delay Value: {self.slider.value()}")
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())
+
