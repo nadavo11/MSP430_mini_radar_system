@@ -29,6 +29,7 @@ extern void write_SegC (char* value, int seg);
 extern void flash_config();
 extern int hexCharToInt(char c);
 extern void inc_lcd(int x);
+extern int hexChar2ToInt(char c[2]);
 extern void dec_lcd(int x);
 extern void ExecuteScript(char* Flash_ptrscript);
 extern void script_delete();

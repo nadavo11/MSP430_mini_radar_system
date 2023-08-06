@@ -17,7 +17,7 @@ int data1=0,data2=0,data3=0,data4;
 
 int y=0;
 
-int zain_al_hanan_ima_shelo_zona_cos_emek=0;
+int z=0;
 //segB[]="0X1040",segC[]="0X1080";
 
 void main(void){
@@ -28,7 +28,7 @@ void main(void){
     sysConfig();          // Configure GPIO, Stop Timers, Init LCD
     //_BIS_SR(CPUOFF);                          // Enter LPM0
     int a = 0;
-    int inc = 6;
+    int inc = 3;
 
     while(1){
 
@@ -52,7 +52,7 @@ void main(void){
 
 
                 set_angel(a);       // set CCR3
-                for(zain_al_hanan_ima_shelo_zona_cos_emek=0; zain_al_hanan_ima_shelo_zona_cos_emek<6; zain_al_hanan_ima_shelo_zona_cos_emek++){
+                for(z=0; z<4; z++){
                   delay_us(Periode_60ms_val);
                 }
 

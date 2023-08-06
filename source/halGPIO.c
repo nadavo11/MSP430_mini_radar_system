@@ -332,6 +332,8 @@ void __attribute__ ((interrupt(USCIAB0RX_VECTOR))) USCI0RX_ISR (void)
         seg = 1;
     else if (c == '#')
         seg = 2;
+    else if (c =='s')
+        LPM0_EXIT;
     else{
         script[j++] = c;
         if (j== 64 || c == '\n'){

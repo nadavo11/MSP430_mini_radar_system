@@ -125,6 +125,23 @@ void print_measurments(unsigned int LLDR , unsigned int RLDR){
     lcd_putrow(R);
     long_delay();
 }
+void print_US(unsigned int LLDR , unsigned int RLDR){
+    char L[16],R[16];
+    sprintf(L, "%d", LLDR); // diff
+    sprintf(R, "%d", RLDR); //ang
+    cursor_off;
+    lcd_reset();
+    lcd_putrow("distance: ");
+    if(LLDR>90||LLDR<0)
+        lcd_putrow("No object");
+    else lcd_putrow(L);
+    if(LLDR>RLDR) lcd_putrow(" LS");
+    else lcd_putrow(" RS");
+    lcd_new_line;
+    lcd_putrow("angle: ");
+    lcd_putrow(R);
+    long_delay();
+}
 
 void send_msg(){
     int ss=12345;
@@ -202,7 +219,7 @@ void inc_lcd(int x){
 
 void dec_lcd(int x){
     int count=x;
-    while(count>x){
+    while(count>0){
         lcd_reset();
         lcd_putrow("DEC_LCD");
         lcd_new_line;
@@ -237,23 +254,27 @@ void rra_lcd(char x){
 }
 
 void servo_scan(int la, int ra){
+
+    lcd_reset();
+    lcd_putrow("Servo Scan");
+
     int y;
     int ang=la, incr=3;
     set_angel(ang);       // set CCR3
-    for(y=0; y<5; y++){
+    for(y=0; y<25; y++){
         delay_us(Periode_60ms_val);
     }
     while(ang<ra){
         ang+=incr;
 
+
         set_angel(ang);       // set CCR3
         delay_us(Periode_60ms_val);
 
 
-
         trigger_ultrasonic();
         diff=diff*0.069;
-        print_measurments(ang ,diff);
+        print_US(diff,ang);
         delay_us(Periode_60ms_val);
 
         TA1CCTL2 &= ~CCIE;
@@ -261,7 +282,9 @@ void servo_scan(int la, int ra){
         TA1CCTL0 &= ~CCIE;
         TA0CTL &= ~TAIE;
 
-        delay_us(1500);
+        for(y=0; y<25; y++){
+            delay_us(Periode_60ms_val);
+        }
 
         stop_PWM();
 
@@ -272,55 +295,67 @@ void servo_scan(int la, int ra){
 
 void ExecuteScript(char* Flash_ptrscript)
 {
-    char OPC, Operand1, Operand2;
+    char OPC[2], Operand1[2], Operand2[2];
     unsigned int Oper2ToInt, X,X2, start, stop, y;
     // read script from flash
 //    if (flag_script)
 //        Flash_ptrscript = file.file_ptr[file.num_of_files - 1];
 //    flag_script = 0;
-
-    for (y = 1; y < 64;)
+    //Flash_ptrscript++;
+    for (y = 0; y < 64;)
     {
-        OPC = *Flash_ptrscript++;
 
-        y ++;
-        switch (OPC)
+        OPC[0] = *Flash_ptrscript++;
+        OPC[1] = *Flash_ptrscript++;
+
+        y +=2;
+
+        switch (OPC[1])
         {
             case '1':
                 /**     INC_LCD     */
-                Operand1 = *Flash_ptrscript++;
-                X = hexCharToInt(Operand1);
-                y ++;
+                Operand1[0] = *Flash_ptrscript++;
+                Operand1[1] = *Flash_ptrscript++;
+
+                X = hexChar2ToInt(Operand1);
+                y +=2;
 
                 //-----------------------------------
 
-                inc_lcd(Operand1);
+                inc_lcd(X);
                 break;
 
             case '2':
                 /**     DEC_LCD     */
-                Operand1 = *Flash_ptrscript++;
-                X = hexCharToInt(Operand1);
-                y++;
+                Operand1[0] = *Flash_ptrscript++;
+                Operand1[1] = *Flash_ptrscript++;
+
+                X = hexChar2ToInt(Operand1);
+                y +=2;
                 //---------------------------
                 dec_lcd(X);
                 break;
             case '3':
                 /**     RRA_LCD     */
-                Operand1 = *Flash_ptrscript++;
+                Operand1[0] = *Flash_ptrscript++;
+                Operand1[1] = *Flash_ptrscript++;
 
-                y++;
+                X = hexChar2ToInt(Operand1);
+                y +=2;
                 //---------------------------
                 //   sscanf(Oper1fFromFlash, "%2x", &Oper2ToInt);
-                rra_lcd(Operand1);
+                rra_lcd(X);
                 break;
 
             case '4':
                 /**     SET DELAY     */
-                Operand1 = *Flash_ptrscript++;
-                y++;
+                Operand1[0] = *Flash_ptrscript++;
+                Operand1[1] = *Flash_ptrscript++;
+
+
+                y +=2;
                 //---------------------------
-                t = hexCharToInt(Operand1);
+                t = hexChar2ToInt(Operand1);
                 break;
 
             case '5':
@@ -330,19 +365,28 @@ void ExecuteScript(char* Flash_ptrscript)
 
             case '6': //point stepper motor to degree p
                 /**     servo DEG     */
-                Operand1 = *Flash_ptrscript++;
-                y++;
-                X = hexCharToInt(Operand1);
+                Operand1[0] = *Flash_ptrscript++;
+                Operand1[1] = *Flash_ptrscript++;
+                y +=2;
+                X = hexChar2ToInt(Operand1);
                 //---------------------------
                 servo_scan(X,X+1);
+                wait(t);
+
+
+
                 break;
             case '7': //scan area between angle l to r
                 /**     DEC_LCD     */
-                Operand1 = *Flash_ptrscript++;
-                Operand2 = *Flash_ptrscript++;
-                X  = hexCharToInt(Operand1);
-                X2 = hexCharToInt(Operand2);
-                y+=2;
+                Operand1[0] = *Flash_ptrscript++;
+                Operand1[1] = *Flash_ptrscript++;
+
+                Operand2[0] = *Flash_ptrscript++;
+                Operand2[1] = *Flash_ptrscript++;
+
+                X  = hexChar2ToInt(Operand1);
+                X2 = hexChar2ToInt(Operand2);
+                y+=4;
                 //---------------------------
                 servo_scan(X,X2);
 
@@ -364,6 +408,12 @@ int hexCharToInt(char c) {
     }
     return -1; // Invalid character
 }
+int hexChar2ToInt(char c[2]){
+    int highNibble = hexCharToInt(c[0]);
+    int lowNibble = hexCharToInt(c[1]);
+    return (highNibble << 4) | lowNibble;
+}
+
 
 void cast_script(){
     int highNibble;
@@ -374,7 +424,6 @@ void cast_script(){
         highNibble = hexCharToInt(script[q]);
         lowNibble = hexCharToInt(script[q + 1]);
     }
-
     temp1[w] = (highNibble << 4) | lowNibble;
 }
 
